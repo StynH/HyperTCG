@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "cardId": "103-lucille-de-labora",
+  "triggers": [
+    {
+      "id": "lucille-de-labora-titanomachy-0",
+      "event": "would-vanquish",
+      "once": "turn",
+      "condition": {
+        "all": [
+          { "eventTarget": "source" },
+          { "event": "attack-damage" },
+          { "activePlayer": "opponent" }
+        ]
+      },
+      "effects": [
+        { "op": "prevent-vanquish", "target": "source", "hp": 10 }
+      ]
+    },
+    {
+      "id": "lucille-de-labora-titanomachy-critical-retaliation",
+      "event": "unit-vanquished",
+      "condition": {
+        "all": [
+          { "eventTarget": "source" },
+          { "event": "attack-damage" },
+          { "eventCritical": true }
+        ]
+      },
+      "effects": [
+        { "op": "vanquish", "target": "attacker" }
+      ]
+    }
+  ],
+  "attacks": [
+    {
+      "id": "lucille-bring-it-down",
+      "effects": [
+        {
+          "op": "set-attack",
+          "property": "damage",
+          "value": {
+            "multiply": [
+              10,
+              { "count": { "zone": "energies", "controller": "actor", "kind": "energy", "energyType": "boson", "ref": "x-cost-energy" } }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

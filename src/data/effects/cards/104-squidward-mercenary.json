@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "cardId": "104-squidward-mercenary",
+  "triggers": [
+    {
+      "id": "squidward-mercenary-swift-swordsman-0",
+      "event": "played",
+      "condition": {
+        "matches": {
+          "ref": "event-target",
+          "selector": { "zone": "vanguard", "controller": "opponent", "kind": "unit" }
+        }
+      },
+      "effects": [
+        {
+          "op": "choose",
+          "selector": { "zone": "energies", "controller": "actor", "kind": "energy", "energyType": "muon" },
+          "store": "sacrificed-energy",
+          "min": 0,
+          "max": 1,
+          "prompt": "You may Vanquish 1 Muon Energy."
+        },
+        { "op": "vanquish", "target": "sacrificed-energy" },
+        {
+          "op": "if",
+          "condition": {
+            "matches": {
+              "ref": "sacrificed-energy",
+              "selector": { "zone": "vanquished", "controller": "actor", "kind": "energy" }
+            }
+          },
+          "then": [
+            { "op": "damage", "target": "event-target", "amount": 20 }
+          ]
+        }
+      ]
+    }
+  ],
+  "attacks": [
+    {
+      "id": "squidward-mercenary-unseen-blade",
+      "effects": [
+        {
+          "op": "if",
+          "condition": { "compare": { "left": { "value": "dr" }, "op": "gte", "right": 7 } },
+          "then": [
+            { "op": "set-attack", "property": "critical", "value": true }
+          ]
+        },
+        {
+          "op": "if",
+          "condition": {
+            "matches": {
+              "ref": "defender",
+              "selector": { "zone": ["vanguard", "backguard"], "controller": "opponent", "kind": "unit", "ready": false }
+            }
+          },
+          "then": [
+            { "op": "condition", "target": "defender", "condition": "cowering" }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint src scripts vite.config.ts",
     "test": "node scripts/run-engine-tests.mjs",
+    "test:cards": "node scripts/run-engine-tests.mjs --cards",
+    "test:list": "node scripts/run-engine-tests.mjs --list",
     "sync:cards": "node scripts/sync-hyperverse-assets.mjs",
     "preview": "vite preview"
   },

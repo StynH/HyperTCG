@@ -2,4 +2,9 @@ node_modules/
 dist/
 .codex-vite.*.log
 *.tsbuildinfo
-/public
+/public/*
+!/public/cards/
+/public/cards/*
+!/public/cards/103-lucille-de-labora.png
+!/public/cards/104-squidward-mercenary.png
+!/public/cards/105-the-master-of-puppets.png

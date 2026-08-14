@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "cardId": "105-the-master-of-puppets",
+  "triggers": [
+    {
+      "id": "master-of-puppets-watching-from-the-shadows-0",
+      "event": "unit-vanquished",
+      "sourceZone": "hand",
+      "condition": {
+        "all": [
+          { "activePlayer": "opponent" },
+          { "eventController": "actor" },
+          { "eventSourceController": "opponent" },
+          { "hasOpenSlot": { "controller": "actor", "rows": ["vanguard"] } },
+          {
+            "compare": {
+              "left": {
+                "countEvents": {
+                  "event": "unit-vanquished",
+                  "controller": "actor",
+                  "sourceController": "opponent"
+                }
+              },
+              "op": "gte",
+              "right": 3
+            }
+          }
+        ]
+      },
+      "effects": [
+        {
+          "op": "choose",
+          "selector": { "zone": "hand", "controller": "actor", "ref": "source", "kind": "unit" },
+          "store": "play-master",
+          "min": 0,
+          "max": 1,
+          "prompt": "You may play The Master of Puppets to your Vanguard for free."
+        },
+        {
+          "op": "choose-slots",
+          "controller": "actor",
+          "rows": ["vanguard"],
+          "store": "master-slot",
+          "countFrom": "play-master",
+          "prompt": "Choose a Vanguard position."
+        },
+        { "op": "move", "cards": "play-master", "to": "vanguard", "slots": "master-slot", "ready": true },
+        {
+          "op": "if",
+          "condition": {
+            "matches": {
+              "ref": "source",
+              "selector": { "zone": "vanguard", "controller": "actor", "kind": "unit" }
+            }
+          },
+          "then": [
+            { "op": "modifier", "target": "opponent", "kind": "cannot-attack", "duration": "active-turn" }
+          ]
+        }
+      ]
+    }
+  ],
+  "attacks": [
+    {
+      "id": "master-of-puppets-cataclysmic-charge",
+      "effects": [
+        {
+          "op": "choose",
+          "selector": { "zone": "energies", "controller": "opponent", "kind": "energy" },
+          "store": "captured-energy",
+          "min": 1,
+          "max": 1,
+          "prompt": "Choose an opposing Energy to take control of."
+        },
+        { "op": "move", "cards": "captured-energy", "to": "energies", "controller": "actor", "ready": false },
+        { "op": "modifier", "target": "captured-energy", "kind": "cannot-ready", "duration": "permanent" },
+        {
+          "op": "if",
+          "condition": {
+            "exists": {
+              "zone": "energies",
+              "controller": "actor",
+              "kind": "energy",
+              "hasModifier": { "kind": "cannot-ready", "source": "source" }
+            },
+            "atLeast": 5
+          },
+          "then": [
+            { "op": "win", "player": "actor" }
+          ]
+        }
+      ]
+    }
+  ]
+}

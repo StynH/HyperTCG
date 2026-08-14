@@ -14,6 +14,7 @@ export interface AttackDefinition {
   id: string;
   name: string;
   cost: readonly CostType[];
+  isGenericCostVariable?: boolean;
   dice: readonly { id: string; die: number }[];
   damage: string;
   effect: string;
@@ -29,6 +30,7 @@ export interface CardDefinition {
   hp: number;
   defense: number;
   cost: readonly CostType[];
+  isGenericCostVariable?: boolean;
   abilities: readonly AbilityDefinition[];
   attacks: readonly AttackDefinition[];
   primary: CostType | null;
@@ -49,6 +51,7 @@ export interface CardDefinition {
 export interface CardInstance {
   instanceId: string;
   cardId: string;
+  owner?: PlayerId;
 }
 
 export interface UnitInPlay extends CardInstance {
@@ -104,6 +107,18 @@ export interface GameState {
   modifiers: RuntimeModifier[];
   pendingChoice: PendingChoice | null;
   pendingTurn: PlayerId | null;
+  turnEvents: TurnEventRecord[];
+}
+
+export interface TurnEventRecord {
+  name: import('./effectTypes').GameEventName;
+  sourceId?: string;
+  targetId?: string;
+  controller: PlayerId;
+  sourceController?: PlayerId;
+  damageType?: 'attack' | 'effect' | 'condition';
+  amount?: number;
+  critical?: boolean;
 }
 
 export interface RuntimeModifier {

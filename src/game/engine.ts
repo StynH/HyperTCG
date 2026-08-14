@@ -16,8 +16,8 @@ const emptyRow = () => Array<UnitInPlay | null>(5).fill(null);
 const otherPlayer = (player: PlayerId): PlayerId => player === 0 ? 1 : 0;
 const cloneState = (state: GameState): GameState => structuredClone(state);
 
-function createPlayer(name: string, seed: number): PlayerState {
-  const deck = createDeck(seed);
+function createPlayer(playerId: PlayerId, name: string, seed: number): PlayerState {
+  const deck = createDeck(seed).map((card) => ({ ...card, owner: playerId }));
   return {
     name,
     hp: 250,
@@ -36,7 +36,10 @@ function createPlayer(name: string, seed: number): PlayerState {
 }
 
 export function createGame(): GameState {
-  const players: [PlayerState, PlayerState] = [createPlayer('You', 4421), createPlayer('Rift Automaton', 9917)];
+  const players: [PlayerState, PlayerState] = [
+    createPlayer(0, 'You', 4421),
+    createPlayer(1, 'Rift Automaton', 9917),
+  ];
   players[0].turnCount = 1;
   return {
     players,
@@ -51,6 +54,7 @@ export function createGame(): GameState {
     modifiers: [],
     pendingChoice: null,
     pendingTurn: null,
+    turnEvents: [],
   };
 }
 
@@ -107,7 +111,7 @@ export function playEnergy(state: GameState, playerId: PlayerId, instanceId: str
   if (!held || getCard(held.cardId).kind !== 'energy') return { state, error: 'That card is not an Energy.' };
   const removed = removeFromHand(player, instanceId)!;
   const definition = getCard(removed.cardId);
-  player.energies.push({ ...removed, energyType: definition.energyType!, isTapped: false });
+  player.energies.push({ ...removed, owner: removed.owner ?? playerId, energyType: definition.energyType!, isTapped: false });
   player.energyPlaysThisTurn += 1;
   player.hasPlayedEnergy = player.energyPlaysThisTurn > 0;
   return { state: withLog(next, player.name + ' played ' + definition.name + '.') };
@@ -134,6 +138,7 @@ export function playUnit(state: GameState, address: BoardAddress, instanceId: st
   const removed = removeFromHand(player, instanceId)!;
   player[address.row][address.index] = {
     ...removed,
+    owner: removed.owner ?? address.player,
     currentHp: card.hp,
     isReady: true,
     enteredTurn: player.turnCount,
@@ -279,18 +284,27 @@ export function activateAbility(state: GameState, player: PlayerId, sourceInstan
   return startActivatedEffects(next, player, sourceInstanceId, abilityId);
 }
 
-export function chooseEffect(state: GameState, selectedIds: readonly string[]): GameResult {
+export function chooseEffect(
+  state: GameState,
+  selectedIds: readonly string[],
+  random: () => number = Math.random,
+): GameResult {
   const next = cloneState(state);
-  const resolved = resolveEffectChoice(next, selectedIds);
-  if (!resolved.error && !resolved.state.pendingChoice && resolved.state.pendingTurn !== null) completePendingTurn(resolved.state, Math.random);
+  const resolved = resolveEffectChoice(next, selectedIds, random);
+  if (!resolved.error && !resolved.state.pendingChoice && resolved.state.pendingTurn !== null) completePendingTurn(resolved.state, random);
   return resolved;
 }
 
-function readyPlayer(player: PlayerState) {
+function readyPlayer(state: GameState, playerId: PlayerId) {
+  const player = state.players[playerId];
   player.hasPlayedEnergy = false;
   player.energyPlaysThisTurn = 0;
-  player.energies.forEach((energy) => { energy.isTapped = false; });
-  [...player.vanguard, ...player.backguard].forEach((unit) => { if (unit) unit.isReady = true; });
+  player.energies.forEach((energy) => {
+    if (!hasModifier(state, energy.instanceId, null, 'cannot-ready')) energy.isTapped = false;
+  });
+  [...player.vanguard, ...player.backguard].forEach((unit) => {
+    if (unit && !hasModifier(state, unit.instanceId, null, 'cannot-ready')) unit.isReady = true;
+  });
 }
 
 function drawTurnCard(state: GameState, playerId: PlayerId) {
@@ -330,9 +344,10 @@ function processTurnEnd(state: GameState, playerId: PlayerId, random: () => numb
 
 function beginTurn(state: GameState, playerId: PlayerId, random: () => number) {
   state.activePlayer = playerId;
+  state.turnEvents = [];
   const player = state.players[playerId];
   player.turnCount += 1;
-  readyPlayer(player);
+  readyPlayer(state, playerId);
   expireModifiers(state, playerId, 'start');
   if (player.hasTakenFirstTurn) drawTurnCard(state, playerId);
   const conditionEffects: EffectOperation[] = [

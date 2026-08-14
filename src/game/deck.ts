@@ -15,6 +15,12 @@ const UTILITY_IDS = [
   '055-clearmind', '057-incoming-warning', '063-suppressing-fire',
 ];
 
+const ALTERNATIVE_IDS = [
+  '103-lucille-de-labora',
+  '104-squidward-mercenary',
+  '105-the-master-of-puppets',
+] as const;
+
 let instanceSequence = 0;
 function makeInstance(cardId: string): CardInstance {
   return { cardId, instanceId: `${cardId}-${++instanceSequence}` };
@@ -32,7 +38,7 @@ function seededShuffle<T>(values: T[], seed: number): T[] {
 }
 
 export function createDeck(seed: number): CardInstance[] {
-  const missing = [...UNIT_IDS, ...UTILITY_IDS].filter((id) => !CARD_BY_ID.has(id));
+  const missing = [...UNIT_IDS, ...UTILITY_IDS, ...ALTERNATIVE_IDS].filter((id) => !CARD_BY_ID.has(id));
   if (missing.length) throw new Error(`Deck references missing cards: ${missing.join(', ')}`);
 
   const scriptedOpening = [
@@ -45,6 +51,7 @@ export function createDeck(seed: number): CardInstance[] {
   const otherNonEnergy = [
     ...UNIT_IDS.flatMap((id) => Array.from({ length: 2 }, () => makeInstance(id))),
     ...UTILITY_IDS.map(makeInstance),
+    makeInstance(seededShuffle([...ALTERNATIVE_IDS], seed)[0]),
   ];
   const openingIds = new Set(scriptedOpening.map(({ cardId }) => cardId));
   const filteredNonEnergy = otherNonEnergy.filter((instance) => {

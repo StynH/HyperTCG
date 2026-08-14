@@ -9,7 +9,7 @@ export const EFFECT_SCRIPTS = new Map(scripts.map((script) => [script.cardId, sc
 const OPERATION_NAMES = new Set([
   'choose', 'choose-slots', 'move', 'modifier', 'draw', 'damage', 'heal', 'ready',
   'exhaust', 'rotate', 'vanquish', 'condition', 'remove-conditions', 'if', 'for-each',
-  'roll', 'set-attack', 'prevent-vanquish', 'attach', 'reveal', 'shuffle', 'log',
+  'roll', 'set-attack', 'prevent-vanquish', 'attach', 'reveal', 'shuffle', 'win', 'log',
 ]);
 
 function validateOperations(cardId: string, operations: readonly EffectOperation[] | undefined, errors: string[]) {

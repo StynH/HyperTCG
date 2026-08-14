@@ -10,6 +10,7 @@ export interface CardSelector {
   ref?: CardRef;
   controller?: ControllerRef;
   kind?: 'unit' | 'utility' | 'energy';
+  energyType?: Exclude<CostType, 'any'>;
   cardType?: string;
   subtitle?: string | readonly string[];
   utilityType?: 'instant' | 'continuous' | 'equipment' | 'free';
@@ -23,11 +24,13 @@ export interface CardSelector {
   anyOf?: readonly CardSelector[];
   attachedTo?: CardRef;
   equipmentSlotsAvailable?: boolean;
+  hasModifier?: { kind: ModifierKind; source?: CardRef; text?: string };
 }
 
 export type ValueExpression = number
-  | { value: 'dr' | 'surplus' | 'attack-damage' | 'event-damage' | 'condition-amount' }
+  | { value: 'dr' | 'surplus' | 'x-cost' | 'attack-damage' | 'event-damage' | 'condition-amount' }
   | { count: CardSelector }
+  | { countEvents: { event: GameEventName; controller?: ControllerRef; sourceController?: ControllerRef } }
   | { add: readonly ValueExpression[] }
   | { multiply: readonly ValueExpression[] };
 
@@ -42,7 +45,12 @@ export type ConditionExpression =
   | { hasCondition: { ref: CardRef; condition: ConditionName | 'any' } }
   | { event: 'attack-damage' | 'effect-damage' | 'attack-targeted' | 'unit-vanquished' | 'unit-rotated' }
   | { eventCausedBy: CardRef }
-  | { eventTarget: CardRef };
+  | { eventTarget: CardRef }
+  | { eventCritical: boolean }
+  | { eventController: ControllerRef }
+  | { eventSourceController: ControllerRef }
+  | { activePlayer: ControllerRef }
+  | { hasOpenSlot: { controller: ControllerRef; rows: readonly RowName[]; atLeast?: number } };
 
 export interface EffectChoice {
   op: 'choose';
@@ -78,9 +86,10 @@ export type ModifierKind =
   | 'defense' | 'max-hp' | 'attack-damage' | 'attack-damage-taken' | 'play-cost'
   | 'utility-cost' | 'cannot-attack' | 'cannot-rotate' | 'cannot-afflict-condition'
   | 'condition-immunity' | 'add-card-type' | 'ignore-defense' | 'extra-energy-play'
-  | 'cannot-play-backguard' | 'reveal-hand' | 'ignore-rotation-prevention' | 'reroll-effect-die';
+  | 'cannot-play-backguard' | 'reveal-hand' | 'ignore-rotation-prevention' | 'reroll-effect-die'
+  | 'cannot-ready';
 
-export type ModifierDuration = 'turn' | 'opponent-next-turn' | 'controller-next-turn' | 'attack' | 'permanent';
+export type ModifierDuration = 'turn' | 'active-turn' | 'opponent-next-turn' | 'controller-next-turn' | 'attack' | 'permanent';
 
 export interface EffectModifier {
   op: 'modifier';
@@ -113,6 +122,7 @@ export type EffectOperation =
   | { op: 'attach'; equipment: CardRef; unit: CardRef }
   | { op: 'reveal'; target: CardRef | CardSelector; to?: ControllerRef }
   | { op: 'shuffle'; player?: ControllerRef }
+  | { op: 'win'; player?: ControllerRef }
   | { op: 'log'; message: string };
 
 export interface ScriptCondition {
@@ -135,6 +145,8 @@ export type GameEventName = 'played' | 'attack-targeted' | 'attack-declared' | '
 export interface TriggeredScript {
   id: string;
   event: GameEventName;
+  sourceZone?: CardZone | readonly CardZone[];
+  once?: 'turn';
   condition?: ConditionExpression;
   optional?: boolean;
   effects: readonly EffectOperation[];

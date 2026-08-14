@@ -1,102 +1,27 @@
 import { CARD_CATALOG, getCard } from '../data/catalog';
-import { activateAbility, availableAttacks, chooseEffect, createGame, endPlayerTurn, playUnit, playUtility, useAttack } from './engine';
+import { activateAbility, availableAttacks, chooseEffect, endPlayerTurn, playUnit, playUtility, useAttack } from './engine';
 import { modifierTotal } from './effectRuntime';
-import type { ConditionName } from './effectTypes';
-import type { EnergyType, GameState, PlayerId, RowName } from './types';
+import {
+  addAllTestEnergy, addTestCondition, addTestEnergy, addTestUnit, createCleanTestState,
+  deterministicRandom, populateTestZones, resolveAllTestChoices, testInstanceId,
+} from './testing/gameFixture';
 
 interface TestResult { name: string; passed: boolean; error?: string }
 
-let testSequence = 0;
-const id = (prefix: string) => prefix + '-test-' + (++testSequence);
+const id = testInstanceId;
 
 function expect(value: unknown, message: string): asserts value {
   if (!value) throw new Error(message);
 }
 
-function cleanState(): GameState {
-  const state = createGame();
-  for (const player of state.players) {
-    player.deck = [];
-    player.hand = [];
-    player.vanguard = Array(5).fill(null);
-    player.backguard = Array(5).fill(null);
-    player.utilities = [];
-    player.energies = [];
-    player.vanquished = [];
-    player.hasTakenFirstTurn = true;
-  }
-  state.log = [];
-  return state;
-}
-
-function addUnit(state: GameState, player: PlayerId, row: RowName, index: number, cardId: string) {
-  const definition = getCard(cardId);
-  const instanceId = id(cardId);
-  state.players[player][row][index] = {
-    instanceId,
-    cardId,
-    currentHp: definition.hp,
-    isReady: true,
-    enteredTurn: state.players[player].turnCount,
-    conditions: [],
-  };
-  return instanceId;
-}
-
-function addCondition(state: GameState, instanceId: string, condition: ConditionName, amount?: number) {
-  for (const player of state.players) {
-    const unit = [...player.vanguard, ...player.backguard].find((candidate) => candidate?.instanceId === instanceId);
-    if (unit) unit.conditions.push({ name: condition, amount, appliedTurn: player.turnCount, controllerTurns: 0 });
-  }
-}
-
-function addEnergy(state: GameState, player: PlayerId, type: EnergyType) {
-  const instanceId = id('energy-' + type);
-  state.players[player].energies.push({ instanceId, cardId: 'energy-' + type, energyType: type, isTapped: false });
-  return instanceId;
-}
-
-function randomValues(...values: number[]) {
-  let index = 0;
-  return () => values[index++] ?? 0.5;
-}
-
-function addAllEnergy(state: GameState, player: PlayerId) {
-  for (const type of ['gluon', 'photon', 'electron', 'muon', 'boson', 'neutrino'] as const) {
-    for (let copy = 0; copy < 6; copy += 1) addEnergy(state, player, type);
-  }
-}
-
-function resolveAllChoices(state: GameState) {
-  let current = state;
-  for (let guard = 0; current.pendingChoice && guard < 30; guard += 1) {
-    const choice = current.pendingChoice;
-    const selected = choice.options.slice(0, choice.min).map(({ id: optionId }) => optionId);
-    const resolved = chooseEffect(current, selected);
-    if (resolved.error) throw new Error(resolved.error);
-    current = resolved.state;
-  }
-  if (current.pendingChoice) throw new Error('Choice continuation did not terminate');
-  return current;
-}
-
-function populateEffectZones(state: GameState) {
-  addUnit(state, 0, 'vanguard', 0, '017-cyclops-tactician');
-  addUnit(state, 0, 'vanguard', 1, '034-bob-ross');
-  addUnit(state, 0, 'vanguard', 2, '038-eminem');
-  addUnit(state, 0, 'vanguard', 3, '078-pilot');
-  addUnit(state, 0, 'backguard', 0, '069-conscript');
-  addUnit(state, 0, 'backguard', 1, '023-squidward');
-  addUnit(state, 1, 'vanguard', 0, '069-conscript');
-  addUnit(state, 1, 'backguard', 0, '067-civilian');
-  state.players[0].deck = Array.from({ length: 20 }, (_, index) => ({
-    instanceId: id('deck'),
-    cardId: index % 2 ? '069-conscript' : '089-battle-medicine',
-  }));
-  state.players[1].deck = [...state.players[0].deck].map((card) => ({ ...card, instanceId: id('opponent-deck') }));
-  state.players[0].vanquished.push({ instanceId: id('vanquished-unit'), cardId: '068-cleaning-droid' });
-  state.players[0].vanquished.push({ instanceId: id('vanquished-utility'), cardId: '089-battle-medicine' });
-}
+const cleanState = createCleanTestState;
+const addUnit = addTestUnit;
+const addCondition = addTestCondition;
+const addEnergy = addTestEnergy;
+const randomValues = deterministicRandom;
+const addAllEnergy = addAllTestEnergy;
+const resolveAllChoices = resolveAllTestChoices;
+const populateEffectZones = populateTestZones;
 
 function run(name: string, test: () => void): TestResult {
   try {

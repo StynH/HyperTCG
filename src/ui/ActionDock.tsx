@@ -21,7 +21,7 @@ interface ActionDockProps {
 
 function AttackButton({ attack, selected, onClick }: { attack: AttackDefinition; selected: boolean; onClick: () => void }) {
   return <button className={`attack-button ${selected ? 'selected' : ''}`} type="button" onClick={onClick}>
-    <CrosshairIcon size={20} /><span><b>{attack.name}</b><small>{attack.damage} damage</small></span><Cost cost={attack.cost} />
+    <CrosshairIcon size={20} /><span><b>{attack.name}</b><small>{attack.damage} damage</small></span><Cost cost={attack.cost} isGenericCostVariable={attack.isGenericCostVariable} />
   </button>;
 }
 

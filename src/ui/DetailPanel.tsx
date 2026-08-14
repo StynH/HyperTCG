@@ -28,7 +28,7 @@ export function DetailPanel({ instance }: { instance: CardInstance | UnitInPlay 
         <span className="eyebrow">{card.type} · {card.subtitle}</span>
         <h2>{card.name}</h2>
         <div className="detail-meta">
-          <Cost cost={card.cost} />
+          <Cost cost={card.cost} isGenericCostVariable={card.isGenericCostVariable} />
           {card.kind === 'unit' && <><span><small>HP</small>{unit ? `${Math.max(0, unit.currentHp)} / ${card.hp}` : card.hp}</span><span><small>DEF</small>{card.defense}</span></>}
         </div>
         {card.abilities.map((ability) => (
@@ -36,14 +36,14 @@ export function DetailPanel({ instance }: { instance: CardInstance | UnitInPlay 
         ))}
         {card.attacks.map((attack) => (
           <section className="rule-block attack-rule" key={attack.id}>
-            <div><h3>{attack.name}</h3><Cost cost={attack.cost} /></div>
+            <div><h3>{attack.name}</h3><Cost cost={attack.cost} isGenericCostVariable={attack.isGenericCostVariable} /></div>
             <b>{attack.damage}</b>
             {attack.effect && <p>{cleanText(attack.effect)}</p>}
           </section>
         ))}
         {card.utilityAttack?.name && (
           <section className="rule-block attack-rule">
-            <div><h3>{card.utilityAttack.name}</h3><Cost cost={card.utilityAttack.cost} /></div>
+            <div><h3>{card.utilityAttack.name}</h3><Cost cost={card.utilityAttack.cost} isGenericCostVariable={card.utilityAttack.isGenericCostVariable} /></div>
             <b>{card.utilityAttack.damage}</b>
             {card.utilityAttack.effect && <p>{cleanText(card.utilityAttack.effect)}</p>}
           </section>
