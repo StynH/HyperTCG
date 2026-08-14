@@ -1,5 +1,6 @@
 import { GENERATED_CARDS } from './cardCatalog.generated';
 import { ENERGY_TYPES, type CardDefinition, type EnergyType } from '../game/types';
+import { validateEffectScripts } from './effects';
 
 export const ENERGY_META: Record<EnergyType, { label: string; symbol: string; color: string }> = {
   gluon: { label: 'Gluon', symbol: 'g', color: '#ffa94d' },
@@ -27,6 +28,7 @@ const energyCards: CardDefinition[] = ENERGY_TYPES.map((energy) => ({
   utilityType: 'instant',
   utilityCondition: '',
   utilityEffect: 'Play up to one Energy card during your turn. Tap Energy to pay costs.',
+  utilityContent: 'effect',
   rarity: 'common',
   setId: 'ENERGY',
   number: ENERGY_TYPES.indexOf(energy) + 1,
@@ -36,6 +38,7 @@ const energyCards: CardDefinition[] = ENERGY_TYPES.map((energy) => ({
 
 export const CARD_CATALOG = [...(GENERATED_CARDS as unknown as CardDefinition[]), ...energyCards];
 export const CARD_BY_ID = new Map(CARD_CATALOG.map((card) => [card.id, card]));
+validateEffectScripts(CARD_CATALOG);
 
 export function getCard(cardId: string): CardDefinition {
   const card = CARD_BY_ID.get(cardId);

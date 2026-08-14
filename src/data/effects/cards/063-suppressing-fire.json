@@ -1,0 +1,1 @@
+{"version":1,"cardId":"063-suppressing-fire","utility":{"effects":[{"op":"damage","target":{"zone":"vanguard","controller":"opponent","kind":"unit"},"amount":10},{"op":"modifier","target":{"zone":"vanguard","controller":"opponent","kind":"unit"},"kind":"defense","amount":-10,"duration":"opponent-next-turn"}]}}

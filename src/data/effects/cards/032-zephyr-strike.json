@@ -1,0 +1,1 @@
+{"version":1,"cardId":"032-zephyr-strike","utility":{"effects":[{"op":"choose","selector":{"zone":["vanguard","backguard"],"controller":"actor","kind":"unit","cardType":"TCR"},"store":"target","min":1,"max":1,"prompt":"Choose a TCR Unit."},{"op":"ready","target":"target"},{"op":"modifier","target":"target","kind":"attack-damage","amount":20,"duration":"turn"}]}}

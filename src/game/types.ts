@@ -36,6 +36,9 @@ export interface CardDefinition {
   utilityType: 'instant' | 'continuous' | 'equipment' | 'free';
   utilityCondition: string;
   utilityEffect: string;
+  utilityContent?: 'effect' | 'attack';
+  utilityAttack?: AttackDefinition;
+  unitTreatment?: 'standard' | 'super' | 'alternative';
   rarity: string;
   setId: string;
   number: number;
@@ -51,6 +54,13 @@ export interface CardInstance {
 export interface UnitInPlay extends CardInstance {
   currentHp: number;
   isReady: boolean;
+  enteredTurn: number;
+  conditions: Array<{
+    name: import('./effectTypes').ConditionName;
+    amount?: number;
+    appliedTurn: number;
+    controllerTurns: number;
+  }>;
 }
 
 export interface EnergyInPlay extends CardInstance {
@@ -65,11 +75,13 @@ export interface PlayerState {
   hand: CardInstance[];
   vanguard: Array<UnitInPlay | null>;
   backguard: Array<UnitInPlay | null>;
-  utilities: CardInstance[];
+  utilities: Array<CardInstance & { attachedTo?: string }>;
   energies: EnergyInPlay[];
   vanquished: CardInstance[];
   hasPlayedEnergy: boolean;
+  energyPlaysThisTurn: number;
   hasTakenFirstTurn: boolean;
+  turnCount: number;
 }
 
 export interface RollResult {
@@ -87,6 +99,41 @@ export interface GameState {
   lastRoll: RollResult | null;
   winner: PlayerId | null;
   isOpponentActing: boolean;
+  actionSequence: number;
+  usedActions: Record<string, number>;
+  modifiers: RuntimeModifier[];
+  pendingChoice: PendingChoice | null;
+  pendingTurn: PlayerId | null;
+}
+
+export interface RuntimeModifier {
+  id: string;
+  sourceInstanceId: string;
+  targetIds: string[];
+  targetPlayer?: PlayerId;
+  kind: import('./effectTypes').ModifierKind;
+  amount?: number;
+  text?: string;
+  expires: { turn: number; player: PlayerId; phase: 'start' | 'end' } | { attack: number } | null;
+}
+
+export interface ChoiceOption {
+  id: string;
+  label: string;
+  cardId?: string;
+}
+
+export interface PendingChoice {
+  id: string;
+  player: PlayerId;
+  prompt: string;
+  min: number;
+  max: number;
+  ordered: boolean;
+  options: ChoiceOption[];
+  store: string;
+  event?: import('./effectRuntime').EffectEvent;
+  continuation: import('./effectRuntime').EffectContinuation;
 }
 
 export interface BoardAddress {

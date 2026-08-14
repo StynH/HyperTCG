@@ -1,0 +1,1 @@
+{"version":1,"cardId":"065-2d","attacks":[{"id":"2d-off-key"},{"id":"2d-on-melancholy-hill","effects":[{"op":"heal","target":{"zone":["vanguard","backguard"],"controller":"actor","kind":"unit"},"amount":10}]}]}

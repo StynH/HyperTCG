@@ -1,0 +1,1 @@
+{"version":1,"cardId":"088-trooper","attacks":[{"id":"trooper-service-rifle"},{"id":"trooper-formation-fire","effects":[{"op":"set-attack","property":"damage","value":{"add":[{"value":"attack-damage"},{"multiply":[10,{"count":{"zone":["vanguard","backguard"],"controller":"actor","kind":"unit","cardType":"TCR","subtitle":"Infantry","exclude":"source"}}]}]}}]}]}

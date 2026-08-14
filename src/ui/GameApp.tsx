@@ -3,6 +3,7 @@ import { getCard } from '../data/catalog';
 import { useGame } from '../game/useGame';
 import type { BoardAddress, CardInstance, UnitInPlay } from '../game/types';
 import { ActionDock } from './ActionDock';
+import { ChoicePanel } from './ChoicePanel';
 import { DetailPanel } from './DetailPanel';
 import { GameBoard } from './GameBoard';
 import { GameLog } from './GameLog';
@@ -19,9 +20,12 @@ export function GameApp() {
   const [pendingAttack, setPendingAttack] = useState<number | null>(null);
   const you = game.state.players[0];
   const canAct = game.state.activePlayer === 0 && !game.state.isOpponentActing && game.state.winner === null;
+  const canUseHand = game.state.winner === null && !game.state.pendingChoice
+    && (canAct || you.hand.some((instance) => getCard(instance.cardId).kind === 'utility' && getCard(instance.cardId).utilityType === 'free'));
   const selectedHandCard = selectedHand ? getCard(selectedHand.cardId) : null;
   const isPlacingUnit = canAct && selectedHandCard?.kind === 'unit';
   const isTargeting = canAct && pendingAttack !== null;
+  const selectedAttacks = selectedUnit ? game.attacksFor(selectedUnit.unit.instanceId) : [];
   const detail = hovered ?? selectedHand ?? selectedUnit?.unit ?? null;
 
   const clearSelection = () => {
@@ -71,8 +75,12 @@ export function GameApp() {
 
   const beginAttack = (attackIndex: number) => {
     if (!selectedUnit || selectedUnit.address.player !== 0) return;
-    const attack = getCard(selectedUnit.unit.cardId).attacks[attackIndex];
+    const attack = selectedAttacks[attackIndex]?.attack;
     if (!attack) return;
+    if (!/^\d/.test(attack.damage)) {
+      if (game.attack(selectedUnit.address, attackIndex, null)) clearSelection();
+      return;
+    }
     const enemyHasUnits = [...game.state.players[1].vanguard, ...game.state.players[1].backguard].some(Boolean);
     if (!enemyHasUnits) {
       if (game.attack(selectedUnit.address, attackIndex, null)) clearSelection();
@@ -108,12 +116,15 @@ export function GameApp() {
             unitSelection={selectedUnit}
             pendingAttack={pendingAttack}
             canAct={canAct}
+            attacks={selectedAttacks}
+            abilities={game.abilities}
             onRotate={() => { if (selectedUnit && game.rotate(selectedUnit.address)) clearSelection(); }}
             onAttack={beginAttack}
+            onAbility={(sourceInstanceId, abilityId) => { if (game.activateAbility(sourceInstanceId, abilityId)) clearSelection(); }}
             onCancel={clearSelection}
             onEndTurn={() => { clearSelection(); game.endTurn(); }}
           />
-          <Hand cards={you.hand} selectedId={selectedHand?.instanceId} disabled={!canAct} onHover={setHovered} onSelect={selectHand} />
+          <Hand cards={you.hand} selectedId={selectedHand?.instanceId} disabled={!canUseHand} onHover={setHovered} onSelect={selectHand} />
         </div>
         <GameLog log={game.state.log} roll={game.state.lastRoll} />
       </div>
@@ -123,6 +134,7 @@ export function GameApp() {
           <div className="result-card glass"><LogoGlyph size={58} /><span>Match complete</span><h1 id="result-title">{game.state.winner === 0 ? 'Rift secured' : 'Signal lost'}</h1><p>{game.state.winner === 0 ? 'The opposing timeline has collapsed.' : 'The Rift Automaton controls this timeline.'}</p><button type="button" onClick={game.reset}>Play again</button></div>
         </div>
       )}
+      {game.state.pendingChoice?.player === 0 && <ChoicePanel choice={game.state.pendingChoice} onSubmit={game.choose} />}
     </div>
   );
 }

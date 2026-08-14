@@ -1,0 +1,1 @@
+{"version":1,"cardId":"062-overwatch-directive","triggers":[{"id":"overwatch-directive-fire","event":"unit-rotated","condition":{"matches":{"ref":"event-target","selector":{"zone":["vanguard","backguard"],"controller":"opponent","kind":"unit"}}},"effects":[{"op":"damage","target":"event-target","amount":10}]}],"utility":{"effects":[]}}

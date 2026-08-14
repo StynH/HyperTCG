@@ -1,0 +1,1 @@
+{"version":1,"cardId":"091-herring-bandito","attacks":[{"id":"herring-bandito-empty-the-clip","effects":[{"op":"set-attack","property":"damage","value":{"add":[{"value":"attack-damage"},{"multiply":[10,{"value":"dr"}]}]}}]}],"utility":{"attach":{"zone":["vanguard","backguard"],"controller":"actor","kind":"unit","subtitle":["Rogue","Gunner","Citizen"]}}}

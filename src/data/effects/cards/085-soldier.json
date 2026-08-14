@@ -1,0 +1,1 @@
+{"version":1,"cardId":"085-soldier","attacks":[{"id":"combine-soldier-standard-issue"},{"id":"combine-soldier-squad-fire","effects":[{"op":"set-attack","property":"damage","value":{"add":[{"value":"attack-damage"},{"multiply":[10,{"count":{"zone":["vanguard","backguard"],"controller":"actor","kind":"unit","cardType":"Combine","subtitle":"Infantry","exclude":"source"}}]}]}}]}]}

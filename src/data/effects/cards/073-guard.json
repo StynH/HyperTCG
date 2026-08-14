@@ -1,0 +1,1 @@
+{"version":1,"cardId":"073-guard","attacks":[{"id":"guard-riot-shield","effects":[{"op":"modifier","target":"source","kind":"attack-damage-taken","amount":-10,"duration":"opponent-next-turn"}]},{"id":"guard-baton-strike"}]}

@@ -1,0 +1,1 @@
+{"version":1,"cardId":"077-norm-of-the-north","attacks":[{"id":"norm-bear-hug","effects":[{"op":"if","condition":{"compare":{"left":{"value":"dr"},"op":"eq","right":4}},"then":[{"op":"condition","target":"defender","condition":"paralyzed"}]}]},{"id":"norm-arctic-slam"}]}

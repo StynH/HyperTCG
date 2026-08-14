@@ -25,7 +25,11 @@ Then open `http://127.0.0.1:4173`.
 - A deterministic training opponent for solo play
 - Persistent full-card detail inspection for cards in hand and on the battlefield
 
-The POC records Utility and non-damaging attack text for manual resolution. A future rules-effect interpreter can be added independently of the current match engine; the deterministic opponent is intentionally not an AI framework.
+Every Base Set effect is executable through a generic JSON interpreter: activated
+and triggered abilities, continuous auras, Equipment, Additional Attacks, searches,
+ordered choices, Conditions, variable Damage, and Free Effect reactions. No card
+effect is hardcoded in the match engine. See `docs/EFFECT_SCRIPTS.md` for the
+scripting contract and the explicit defaults used where the rules SSOT is undecided.
 
 ## Refresh HyperTCGMaker assets
 
@@ -38,6 +42,8 @@ npm run sync:cards
 It defaults to `C:/Users/Styn/Documents/GitHub/HyperTCGMaker`. Set `HYPERVERSE_MAKER_PATH` to use another checkout.
 
 ## Project shape
+
+- `src/data/effects/cards/` — one executable JSON pseudo-script per card
 
 - `src/game/` — pure match state and rules transitions
 - `src/data/` — generated card catalog and energy metadata

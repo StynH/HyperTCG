@@ -1,0 +1,1 @@
+{"version":1,"cardId":"094-pulse-rifle","attacks":[{"id":"pulse-rifle-controlled-burst"}],"utility":{"attach":{"zone":["vanguard","backguard"],"controller":"actor","kind":"unit","cardType":"Combine"}}}

@@ -41,6 +41,14 @@ export function DetailPanel({ instance }: { instance: CardInstance | UnitInPlay 
             {attack.effect && <p>{cleanText(attack.effect)}</p>}
           </section>
         ))}
+        {card.utilityAttack?.name && (
+          <section className="rule-block attack-rule">
+            <div><h3>{card.utilityAttack.name}</h3><Cost cost={card.utilityAttack.cost} /></div>
+            <b>{card.utilityAttack.damage}</b>
+            {card.utilityAttack.effect && <p>{cleanText(card.utilityAttack.effect)}</p>}
+          </section>
+        )}
+        {unit?.conditions.length ? <section className="rule-block"><h3>Conditions</h3><p>{unit.conditions.map(({ name, amount }) => `${name}${amount ? ` ${amount}` : ''}`).join(', ')}</p></section> : null}
         {card.kind === 'utility' && (
           <section className="rule-block"><h3>{card.utilityType} effect</h3><p>{cleanText(card.utilityEffect || card.utilityCondition)}</p></section>
         )}

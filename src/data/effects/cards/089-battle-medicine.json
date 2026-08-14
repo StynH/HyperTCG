@@ -1,0 +1,1 @@
+{"version":1,"cardId":"089-battle-medicine","utility":{"effects":[{"op":"choose","selector":{"zone":["vanguard","backguard"],"controller":"actor","kind":"unit"},"store":"target","min":1,"max":1,"prompt":"Choose a Unit you control."},{"op":"heal","target":"target","amount":30},{"op":"remove-conditions","target":"target"}]}}

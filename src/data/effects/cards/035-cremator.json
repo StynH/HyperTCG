@@ -1,0 +1,1 @@
+{"version":1,"cardId":"035-cremator","attacks":[{"id":"cremator-immolate","effects":[{"op":"condition","target":"defender","condition":"infected","amount":10}]},{"id":"cremator-scorched-earth","effects":[{"op":"if","condition":{"compare":{"left":{"value":"dr"},"op":"gte","right":5}},"then":[{"op":"condition","target":"defender","condition":"infected","amount":20}]}]}]}

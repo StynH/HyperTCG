@@ -1,0 +1,1 @@
+{"version":1,"cardId":"061-one-punch","utility":{"effects":[{"op":"choose","selector":{"zone":["vanguard","backguard"],"controller":"actor","kind":"unit","subtitle":"Bruiser"},"store":"target","min":1,"max":1,"prompt":"Choose a Bruiser Unit."},{"op":"modifier","target":"target","kind":"attack-damage","amount":30,"duration":"turn"}]}}

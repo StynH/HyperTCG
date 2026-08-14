@@ -1,0 +1,1 @@
+{"version":1,"cardId":"093-narrow-escape","utility":{"reaction":{"event":"attack-targeted","condition":{"matches":{"ref":"event-target","selector":{"zone":["vanguard","backguard"],"controller":"actor","kind":"unit","cardType":"X-Tremists"}}}},"effects":[{"op":"rotate","target":"event-target","exhaust":false},{"op":"set-attack","property":"failed","value":true}]}}

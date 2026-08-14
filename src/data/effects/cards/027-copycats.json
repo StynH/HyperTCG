@@ -1,0 +1,1 @@
+{"version":1,"cardId":"027-copycats","utility":{"effects":[{"op":"modifier","target":{"zone":["vanguard","backguard"],"controller":"actor","kind":"unit","cardType":"X-Perience"},"kind":"add-card-type","text":"X-Tremists","duration":"turn"},{"op":"ready","target":{"zone":["vanguard","backguard"],"controller":"actor","kind":"unit","cardType":"X-Perience"}}]}}
