@@ -5,6 +5,7 @@ import type { BoardAddress, CardInstance, UnitInPlay } from '../game/types';
 import { ActionDock } from './ActionDock';
 import { ChoicePanel } from './ChoicePanel';
 import { DetailPanel } from './DetailPanel';
+import { DiceCast } from './DiceCast';
 import { GameBoard } from './GameBoard';
 import { GameLog } from './GameLog';
 import { Hand } from './Hand';
@@ -129,6 +130,7 @@ export function GameApp() {
         <GameLog log={game.state.log} roll={game.state.lastRoll} />
       </div>
 
+      <DiceCast roll={game.state.lastRoll} />
       {game.state.winner !== null && (
         <div className="result-overlay" role="dialog" aria-modal="true" aria-labelledby="result-title">
           <div className="result-card glass"><LogoGlyph size={58} /><span>Match complete</span><h1 id="result-title">{game.state.winner === 0 ? 'Rift secured' : 'Signal lost'}</h1><p>{game.state.winner === 0 ? 'The opposing timeline has collapsed.' : 'The Rift Automaton controls this timeline.'}</p><button type="button" onClick={game.reset}>Play again</button></div>

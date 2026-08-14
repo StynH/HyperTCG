@@ -11,6 +11,7 @@ import type {
   AttackDefinition, BoardAddress, CardInstance, CostType, EnergyInPlay, GameResult,
   GameState, PlayerId, PlayerState, RowName, UnitInPlay,
 } from './types';
+import { secureRandom } from './random';
 
 const emptyRow = () => Array<UnitInPlay | null>(5).fill(null);
 const otherPlayer = (player: PlayerId): PlayerId => player === 0 ? 1 : 0;
@@ -232,7 +233,7 @@ export function useAttack(
   source: BoardAddress,
   attackIndex: number,
   target: BoardAddress | null,
-  random: () => number = Math.random,
+  random: () => number = secureRandom,
 ): GameResult {
   const blocked = actionBlocked(state);
   if (blocked) return { state, error: blocked };
@@ -287,7 +288,7 @@ export function activateAbility(state: GameState, player: PlayerId, sourceInstan
 export function chooseEffect(
   state: GameState,
   selectedIds: readonly string[],
-  random: () => number = Math.random,
+  random: () => number = secureRandom,
 ): GameResult {
   const next = cloneState(state);
   const resolved = resolveEffectChoice(next, selectedIds, random);
@@ -386,7 +387,7 @@ function affordable(player: PlayerState, kind: 'unit' | 'utility') {
   });
 }
 
-export function runOpponentTurn(state: GameState, random: () => number = Math.random): GameState {
+export function runOpponentTurn(state: GameState, random: () => number = secureRandom): GameState {
   if (state.pendingChoice || state.winner !== null || state.activePlayer !== 1) return state;
   let next = cloneState(state);
   const opponent = next.players[1];
@@ -431,7 +432,7 @@ export function runOpponentTurn(state: GameState, random: () => number = Math.ra
   return next;
 }
 
-export function endPlayerTurn(state: GameState, random: () => number = Math.random): GameResult {
+export function endPlayerTurn(state: GameState, random: () => number = secureRandom): GameResult {
   const blocked = actionBlocked(state);
   if (blocked) return { state, error: blocked };
   if (state.activePlayer !== 0 || state.winner !== null) return { state, error: 'You cannot end the turn now.' };

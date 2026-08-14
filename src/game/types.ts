@@ -88,6 +88,7 @@ export interface PlayerState {
 }
 
 export interface RollResult {
+  sequence: number;
   attack: number;
   defense?: number;
   damage: number;

@@ -62,6 +62,22 @@ export function runEngineSelfTests(): TestResult[] {
       expect(result.state.lastRoll?.attack === 10 && result.state.lastRoll.defense === 63, 'Dice were not recorded');
       expect(result.state.players[0].vanguard[0]?.instanceId === attacker, 'Wrong attacker changed');
     }),
+    run('records a natural 1 as a failed combat roll', () => {
+      const state = cleanState();
+      addUnit(state, 0, 'vanguard', 0, '069-conscript');
+      addUnit(state, 1, 'vanguard', 0, '069-conscript');
+      addEnergy(state, 0, 'gluon');
+      const result = useAttack(
+        state,
+        { player: 0, row: 'vanguard', index: 0 },
+        0,
+        { player: 1, row: 'vanguard', index: 0 },
+        randomValues(0),
+      );
+      expect(result.state.lastRoll?.attack === 1, 'Natural 1 was not recorded');
+      expect(result.state.lastRoll.damage === 0, 'Failed attack recorded Damage');
+      expect(result.state.players[1].vanguard[0]?.currentHp === 50, 'Failed attack dealt Damage');
+    }),
     run('pauses and resumes a generic card-target choice', () => {
       const state = cleanState();
       const cleaner = addUnit(state, 0, 'backguard', 0, '068-cleaning-droid');

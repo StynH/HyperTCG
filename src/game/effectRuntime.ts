@@ -9,6 +9,7 @@ import type {
   AttackDefinition, CardInstance, ChoiceOption, GameState, PlayerId, RuntimeModifier,
   UnitInPlay,
 } from './types';
+import { randomInteger, rollDie, secureRandom } from './random';
 
 export interface EffectEvent {
   name: GameEventName;
@@ -567,7 +568,7 @@ export function payCardCost(
 
 function shuffle<T>(items: T[], random: () => number) {
   for (let index = items.length - 1; index > 0; index -= 1) {
-    const target = Math.floor(random() * (index + 1));
+    const target = randomInteger(random, index + 1);
     [items[index], items[target]] = [items[target], items[index]];
   }
 }
@@ -1138,7 +1139,7 @@ function executeOperation(
     }
     case 'roll': {
       const sides = operation.sides || continuation.attack?.effectDieSides || 6;
-      const result = Math.floor(random() * sides) + 1;
+      const result = rollDie(sides, random);
       continuation.vars.dr = result;
       if (continuation.attack) continuation.attack.dr = result;
       return;
@@ -1236,7 +1237,7 @@ function executeInternal(
       return;
     case 'roll-effect-die':
       if (!attack || operation.sides <= 0) return;
-      attack.dr = Math.floor(random() * operation.sides) + 1;
+      attack.dr = rollDie(operation.sides, random);
       continuation.vars.dr = attack.dr;
       withLog(state, attack.attackName + ' rolled ' + attack.dr + ' on d' + operation.sides + '.');
       return;
@@ -1264,7 +1265,7 @@ function executeInternal(
     }
     case 'roll-critical':
       if (!attack || attack.damage <= 0 || attack.isFailed || attack.isCritical) return;
-      attack.criticalRoll = Math.floor(random() * 20) + 1;
+      attack.criticalRoll = rollDie(20, random);
       if (attack.criticalRoll === 1) {
         attack.isFailed = true;
         withLog(state, attack.attackName + ' failed on a natural 1.');
@@ -1275,7 +1276,16 @@ function executeInternal(
       if (attack.criticalRoll === 20 && !isWeakened) attack.isCritical = true;
       return;
     case 'resolve-attack-damage': {
-      if (!attack || attack.isFailed || attack.damage <= 0) return;
+      if (!attack || attack.damage <= 0) return;
+      if (attack.isFailed) {
+        state.lastRoll = {
+          sequence: attack.sequence,
+          attack: attack.criticalRoll,
+          damage: 0,
+          summary: 'Attack failed — 0 Damage.',
+        };
+        return;
+      }
       let damage = attack.damage + modifierTotal(state, attack.attackerId, null, 'attack-damage', continuation);
       if (attack.defenderId) damage += modifierTotal(state, attack.defenderId, null, 'attack-damage-taken', continuation);
       damage = Math.max(0, damage);
@@ -1285,6 +1295,7 @@ function executeInternal(
         defender.hp = Math.max(0, defender.hp - damage);
         if (defender.hp === 0) state.winner = context.actor;
         state.lastRoll = {
+          sequence: attack.sequence,
           attack: attack.criticalRoll,
           damage,
           summary: attack.isCritical ? 'Critical direct hit!' : 'Direct hit.',
@@ -1297,7 +1308,7 @@ function executeInternal(
       const defense = getCard(unit.cardId).defense + modifierTotal(state, attack.defenderId, null, 'defense', continuation);
       let defenseLabel = 'failed Defense';
       if (!attack.ignoresDefense) {
-        attack.defenseRoll = Math.floor(random() * 100) + 1;
+        attack.defenseRoll = rollDie(100, random);
         if (attack.defenseRoll <= 5) {
           damage = 0;
           defenseLabel = 'Critical Defense';
@@ -1312,6 +1323,7 @@ function executeInternal(
         defenseLabel = 'Defense ignored';
       }
       state.lastRoll = {
+        sequence: attack.sequence,
         attack: attack.criticalRoll,
         defense: attack.defenseRoll,
         damage,
@@ -1336,7 +1348,7 @@ function executeInternal(
 export function runContinuation(
   state: GameState,
   continuation: EffectContinuation,
-  random: () => number = Math.random,
+  random: () => number = secureRandom,
 ): GameState {
   while (continuation.frames.length && !state.pendingChoice && state.winner === null) {
     const frame = continuation.frames[continuation.frames.length - 1];
@@ -1377,7 +1389,7 @@ export function startEffects(
   sourceInstanceId: string,
   effects: readonly EffectOperation[],
   event?: EffectEvent,
-  random: () => number = Math.random,
+  random: () => number = secureRandom,
 ): GameState {
   const continuation: EffectContinuation = {
     actor,
@@ -1392,7 +1404,7 @@ export function startEffects(
 export function dispatchGameEvent(
   state: GameState,
   event: EffectEvent,
-  random: () => number = Math.random,
+  random: () => number = secureRandom,
 ): GameState {
   const continuation: EffectContinuation = {
     actor: event.controller,
@@ -1412,7 +1424,7 @@ export function startAttackEffects(
   defendingPlayer: PlayerId,
   attack: AttackDefinition,
   attackScript: import('./effectTypes').AttackScript,
-  random: () => number = Math.random,
+  random: () => number = secureRandom,
 ): GameState {
   const damageMatch = attack.damage.match(/^\d+/);
   const runtime: AttackRuntime = {
@@ -1485,7 +1497,7 @@ export function startAttackEffects(
 export function resolveEffectChoice(
   state: GameState,
   selectedIds: readonly string[],
-  random: () => number = Math.random,
+  random: () => number = secureRandom,
 ): { state: GameState; error?: string } {
   const pending = state.pendingChoice;
   if (!pending) return { state, error: 'There is no pending choice.' };
@@ -1547,7 +1559,7 @@ export function startActivatedEffects(
   player: PlayerId,
   sourceInstanceId: string,
   abilityId: string,
-  random: () => number = Math.random,
+  random: () => number = secureRandom,
 ): { state: GameState; error?: string } {
   if (!canActivate(state, player, sourceInstanceId, abilityId)) return { state, error: 'That ability cannot be used now.' };
   const location = locateCard(state, sourceInstanceId)!;
@@ -1563,7 +1575,7 @@ export function startUtilityScript(
   state: GameState,
   player: PlayerId,
   sourceInstanceId: string,
-  random: () => number = Math.random,
+  random: () => number = secureRandom,
 ): GameState {
   const location = locateCard(state, sourceInstanceId);
   if (!location) return state;
