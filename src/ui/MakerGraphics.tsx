@@ -1,151 +1,35 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useLayoutEffect, useRef, type CSSProperties } from 'react';
+import anyEnergySymbol from '../assets/energy-symbols/any.png';
+import blankEnergySymbol from '../assets/energy-symbols/blank.png';
+import bosonEnergySymbol from '../assets/energy-symbols/boson.png';
+import electronEnergySymbol from '../assets/energy-symbols/electron.png';
+import gluonEnergySymbol from '../assets/energy-symbols/gluon.png';
+import muonEnergySymbol from '../assets/energy-symbols/muon.png';
+import neutrinoEnergySymbol from '../assets/energy-symbols/neutrino.png';
+import photonEnergySymbol from '../assets/energy-symbols/photon.png';
 import { ENERGY_META } from '../data/catalog';
-import { ENERGY_TYPES, type CostType } from '../game/types';
+import type { CostType } from '../game/types';
 
-const ENERGIES: CostType[] = [...ENERGY_TYPES, 'any'];
-const FRAME = 64;
-const RENDER_SCALE = 4;
-const ORB_RADIUS = 28.5;
-const INNER_RADIUS = 26.5;
-const BLANK_FRAME_INDEX = ENERGIES.length;
-const FRAME_COUNT = ENERGIES.length + 1;
-const ANY_META = { symbol: '✱', label: 'Any', color: '#f2f2f0' };
+const ENERGY_SYMBOLS: Record<CostType, string> = {
+  any: anyEnergySymbol,
+  boson: bosonEnergySymbol,
+  electron: electronEnergySymbol,
+  gluon: gluonEnergySymbol,
+  muon: muonEnergySymbol,
+  neutrino: neutrinoEnergySymbol,
+  photon: photonEnergySymbol,
+};
 
-let cachedSheet: string | null = null;
-const sheetListeners = new Set<() => void>();
-
-function energyMeta(energy: CostType) {
-  return energy === 'any' ? ANY_META : ENERGY_META[energy];
+function energyLabel(energy: CostType) {
+  return energy === 'any' ? 'Any' : ENERGY_META[energy].label;
 }
 
-function circle(context: CanvasRenderingContext2D, x: number, y: number, radius: number) {
-  context.beginPath();
-  context.arc(x, y, radius, 0, Math.PI * 2);
-}
-
-// This is the HyperTCGMaker orb renderer, kept here as the shared visual source of truth.
-function drawGlossyOrb(context: CanvasRenderingContext2D, x: number, y: number, color: string) {
-  context.save();
-  context.shadowColor = 'rgba(0, 0, 0, 0.35)';
-  context.shadowBlur = 2;
-  context.shadowOffsetY = 1;
-  circle(context, x, y, ORB_RADIUS);
-  const rim = context.createLinearGradient(x - 18, y - 22, x + 20, y + 24);
-  rim.addColorStop(0, '#ffffff');
-  rim.addColorStop(0.16, color);
-  rim.addColorStop(0.72, color);
-  rim.addColorStop(1, '#202025');
-  context.fillStyle = rim;
-  context.fill();
-
-  context.shadowColor = 'transparent';
-  circle(context, x, y, INNER_RADIUS);
-  context.fillStyle = color;
-  context.fill();
-  context.clip();
-
-  const glassGlow = context.createRadialGradient(x - 11, y - 13, 1, x - 8, y - 9, 24);
-  glassGlow.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
-  glassGlow.addColorStop(0.2, 'rgba(255, 255, 255, 0.58)');
-  glassGlow.addColorStop(0.52, 'rgba(255, 255, 255, 0.08)');
-  glassGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  context.fillStyle = glassGlow;
-  context.fillRect(x - ORB_RADIUS, y - ORB_RADIUS, ORB_RADIUS * 2, ORB_RADIUS * 2);
-
-  const lowerShade = context.createLinearGradient(x, y - 15, x, y + 28);
-  lowerShade.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  lowerShade.addColorStop(0.56, 'rgba(0, 0, 0, 0.06)');
-  lowerShade.addColorStop(1, 'rgba(0, 0, 0, 0.38)');
-  context.fillStyle = lowerShade;
-  context.fillRect(x - ORB_RADIUS, y - ORB_RADIUS, ORB_RADIUS * 2, ORB_RADIUS * 2);
-
-  const edgeShade = context.createRadialGradient(x, y - 2, 12, x, y, INNER_RADIUS);
-  edgeShade.addColorStop(0.55, 'rgba(0, 0, 0, 0)');
-  edgeShade.addColorStop(0.86, 'rgba(0, 0, 0, 0.08)');
-  edgeShade.addColorStop(1, 'rgba(0, 0, 0, 0.28)');
-  context.fillStyle = edgeShade;
-  context.fillRect(x - ORB_RADIUS, y - ORB_RADIUS, ORB_RADIUS * 2, ORB_RADIUS * 2);
-
-  const reflectedLight = context.createRadialGradient(x + 16, y + 17, 0, x + 16, y + 17, 13);
-  reflectedLight.addColorStop(0, 'rgba(255, 255, 255, 0.72)');
-  reflectedLight.addColorStop(0.22, 'rgba(255, 255, 255, 0.32)');
-  reflectedLight.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  context.fillStyle = reflectedLight;
-  context.fillRect(x, y, INNER_RADIUS, INNER_RADIUS);
-
-  context.beginPath();
-  context.ellipse(x - 7, y - 16, 12, 5, -0.48, 0, Math.PI * 2);
-  const highlight = context.createLinearGradient(x - 18, y - 20, x + 3, y - 12);
-  highlight.addColorStop(0, 'rgba(255, 255, 255, 0.82)');
-  highlight.addColorStop(0.58, 'rgba(255, 255, 255, 0.34)');
-  highlight.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  context.fillStyle = highlight;
-  context.fill();
-  context.restore();
-
-  circle(context, x, y, ORB_RADIUS);
-  const rimLight = context.createLinearGradient(x - 18, y - 24, x + 18, y + 24);
-  rimLight.addColorStop(0, 'rgba(255, 255, 255, 0.88)');
-  rimLight.addColorStop(0.4, 'rgba(255, 255, 255, 0.18)');
-  rimLight.addColorStop(0.75, 'rgba(0, 0, 0, 0.24)');
-  rimLight.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
-  context.lineWidth = 1.5;
-  context.strokeStyle = rimLight;
-  context.stroke();
-}
-
-function drawEnergySymbol(context: CanvasRenderingContext2D, x: number, y: number, symbol: string) {
-  context.save();
-  context.font = '800 28px Inter, Arial, sans-serif';
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.shadowColor = 'rgba(255, 255, 255, 0.52)';
-  context.shadowOffsetY = 1;
-  context.fillStyle = '#09090c';
-  context.fillText(symbol, x, y + 2);
-  context.shadowColor = 'rgba(0, 0, 0, 0.5)';
-  context.shadowBlur = 1.5;
-  context.shadowOffsetY = 1.5;
-  context.fillText(symbol, x, y + 1);
-  context.restore();
-}
-
-function drawSheet() {
-  const canvas = document.createElement('canvas');
-  canvas.width = FRAME * FRAME_COUNT * RENDER_SCALE;
-  canvas.height = FRAME * RENDER_SCALE;
-  const context = canvas.getContext('2d')!;
-  context.scale(RENDER_SCALE, RENDER_SCALE);
-  const frames = [...ENERGIES.map(energyMeta), { color: ANY_META.color, symbol: '' }];
-  frames.forEach((frame, index) => {
-    const x = index * FRAME + FRAME / 2;
-    const y = FRAME / 2;
-    drawGlossyOrb(context, x, y, frame.color);
-    if (frame.symbol) drawEnergySymbol(context, x, y, frame.symbol);
-  });
-  cachedSheet = canvas.toDataURL('image/png');
-  sheetListeners.forEach((notify) => notify());
-}
-
-function useEnergySheet() {
-  const [sheet, setSheet] = useState(cachedSheet);
-  useEffect(() => {
-    if (cachedSheet) { setSheet(cachedSheet); return; }
-    const notify = () => setSheet(cachedSheet);
-    sheetListeners.add(notify);
-    return () => { sheetListeners.delete(notify); };
-  }, []);
-  return sheet;
-}
-
-if (typeof document !== 'undefined') document.fonts.ready.then(drawSheet);
-
-function orbStyle(frameIndex: number, sheet: string | null, size: number): CSSProperties {
+function orbStyle(symbol: string, size: number): CSSProperties {
   return {
     '--orb-size': `${size}px`,
-    backgroundImage: sheet ? `url(${sheet})` : undefined,
-    backgroundSize: 'auto 100%',
-    backgroundPosition: `${(frameIndex / (FRAME_COUNT - 1)) * 100}% 0`,
+    backgroundImage: `url("${symbol}")`,
+    backgroundPosition: 'center',
+    backgroundSize: 'contain',
   } as CSSProperties;
 }
 
@@ -169,11 +53,11 @@ function OrbCount({ value }: { value: number | 'X' }) {
 }
 
 export function MakerEnergyOrb({ energy, size = 24, count }: { energy: CostType; size?: number; count?: number | 'X' }) {
-  const sheet = useEnergySheet();
   const numbered = count !== undefined;
-  const meta = energyMeta(energy);
+  const label = energyLabel(energy);
+  const symbol = numbered ? blankEnergySymbol : ENERGY_SYMBOLS[energy];
   return (
-    <span className="maker-energy-orb" style={orbStyle(numbered ? BLANK_FRAME_INDEX : ENERGIES.indexOf(energy), sheet, size)} role="img" aria-label={numbered ? `${count} ${meta.label} Energy` : `${meta.label} Energy`} title={meta.label}>
+    <span className="maker-energy-orb" style={orbStyle(symbol, size)} role="img" aria-label={numbered ? `${count} ${label} Energy` : `${label} Energy`} title={label}>
       {numbered && <OrbCount value={count} />}
     </span>
   );
