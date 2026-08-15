@@ -6,8 +6,8 @@ import type {
   ModifierDuration, ModifierKind, ResolvedCardLocation, ValueExpression,
 } from './effectTypes';
 import type {
-  AttackDefinition, CardInstance, ChoiceOption, GameState, PlayerId, RuntimeModifier,
-  UnitInPlay,
+  AttackDefinition, CardInstance, ChoiceOption, DieRollResult, GameState, PlayerId,
+  RuntimeModifier, UnitInPlay,
 } from './types';
 import { randomInteger, rollDie, secureRandom } from './random';
 
@@ -443,6 +443,25 @@ function evaluateCondition(state: GameState, condition: ConditionExpression, con
 
 function withLog(state: GameState, message: string) {
   state.log = [message, ...state.log].slice(0, 24);
+}
+
+function recordRoll(state: GameState, rolls: readonly DieRollResult[], damage: number, summary: string) {
+  state.lastRoll = {
+    sequence: ++state.rollSequence,
+    rolls,
+    damage,
+    summary,
+  };
+}
+
+function resolvedAttackRolls(attack: AttackRuntime): DieRollResult[] {
+  const rolls: DieRollResult[] = [];
+  if (attack.effectDieSides > 0 && attack.dr > 0) {
+    rolls.push({ kind: 'effect', sides: attack.effectDieSides, value: attack.dr });
+  }
+  if (attack.criticalRoll > 0) rolls.push({ kind: 'critical', sides: 20, value: attack.criticalRoll });
+  if (attack.defenseRoll !== undefined) rolls.push({ kind: 'defense', sides: 100, value: attack.defenseRoll });
+  return rolls;
 }
 
 function pushFrame(
@@ -1141,7 +1160,11 @@ function executeOperation(
       const sides = operation.sides || continuation.attack?.effectDieSides || 6;
       const result = rollDie(sides, random);
       continuation.vars.dr = result;
-      if (continuation.attack) continuation.attack.dr = result;
+      if (continuation.attack) {
+        continuation.attack.dr = result;
+        continuation.attack.effectDieSides = sides;
+      }
+      recordRoll(state, [{ kind: 'effect', sides, value: result }], 0, 'Effect die resolved: ' + result + ' on d' + sides + '.');
       return;
     }
     case 'set-attack': {
@@ -1240,6 +1263,12 @@ function executeInternal(
       attack.dr = rollDie(operation.sides, random);
       continuation.vars.dr = attack.dr;
       withLog(state, attack.attackName + ' rolled ' + attack.dr + ' on d' + operation.sides + '.');
+      recordRoll(
+        state,
+        [{ kind: 'effect', sides: operation.sides, value: attack.dr }],
+        0,
+        attack.attackName + ' effect die: ' + attack.dr + '.',
+      );
       return;
     case 'offer-die-actions':
       offerEffectDieActions(state, continuation);
@@ -1278,12 +1307,7 @@ function executeInternal(
     case 'resolve-attack-damage': {
       if (!attack || attack.damage <= 0) return;
       if (attack.isFailed) {
-        state.lastRoll = {
-          sequence: attack.sequence,
-          attack: attack.criticalRoll,
-          damage: 0,
-          summary: 'Attack failed — 0 Damage.',
-        };
+        recordRoll(state, resolvedAttackRolls(attack), 0, 'Attack failed — 0 Damage.');
         return;
       }
       let damage = attack.damage + modifierTotal(state, attack.attackerId, null, 'attack-damage', continuation);
@@ -1294,12 +1318,12 @@ function executeInternal(
         const defender = state.players[attack.defendingPlayer];
         defender.hp = Math.max(0, defender.hp - damage);
         if (defender.hp === 0) state.winner = context.actor;
-        state.lastRoll = {
-          sequence: attack.sequence,
-          attack: attack.criticalRoll,
+        recordRoll(
+          state,
+          resolvedAttackRolls(attack),
           damage,
-          summary: attack.isCritical ? 'Critical direct hit!' : 'Direct hit.',
-        };
+          attack.isCritical ? 'Critical direct hit!' : 'Direct hit.',
+        );
         withLog(state, attack.attackName + ' dealt ' + damage + ' direct Damage.');
         return;
       }
@@ -1322,13 +1346,7 @@ function executeInternal(
       } else {
         defenseLabel = 'Defense ignored';
       }
-      state.lastRoll = {
-        sequence: attack.sequence,
-        attack: attack.criticalRoll,
-        defense: attack.defenseRoll,
-        damage,
-        summary: defenseLabel + ' — ' + damage + ' Damage.',
-      };
+      recordRoll(state, resolvedAttackRolls(attack), damage, defenseLabel + ' — ' + damage + ' Damage.');
       applyDamage(state, continuation, [attack.defenderId], damage, context, 'attack');
       return;
     }

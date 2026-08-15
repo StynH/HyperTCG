@@ -87,10 +87,15 @@ export interface PlayerState {
   turnCount: number;
 }
 
+export interface DieRollResult {
+  kind: 'effect' | 'critical' | 'defense';
+  sides: number;
+  value: number;
+}
+
 export interface RollResult {
   sequence: number;
-  attack: number;
-  defense?: number;
+  rolls: readonly DieRollResult[];
   damage: number;
   summary: string;
 }
@@ -104,6 +109,7 @@ export interface GameState {
   winner: PlayerId | null;
   isOpponentActing: boolean;
   actionSequence: number;
+  rollSequence: number;
   usedActions: Record<string, number>;
   modifiers: RuntimeModifier[];
   pendingChoice: PendingChoice | null;

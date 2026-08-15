@@ -5,8 +5,12 @@ import {
 } from './engine';
 import type { BoardAddress, GameResult, GameState } from './types';
 
-export function useGame() {
-  const [state, setState] = useState<GameState>(createGame);
+export function useGame(playerDeckId: string, opponentDeckId: string) {
+  const createSelectedGame = useCallback(
+    () => createGame({ playerDeckId, opponentDeckId }),
+    [opponentDeckId, playerDeckId],
+  );
+  const [state, setState] = useState<GameState>(createSelectedGame);
   const [notice, setNotice] = useState('Click Energy or Utility to play it. Click a Unit, then choose its highlighted slot.');
 
   const apply = useCallback((result: GameResult) => {
@@ -29,7 +33,7 @@ export function useGame() {
     state,
     notice,
     setNotice,
-    reset: () => { setState(createGame()); setNotice('New match initialized.'); },
+    reset: () => { setState(createSelectedGame()); setNotice('New match initialized.'); },
     playEnergy: (instanceId: string) => apply(playEnergy(state, 0, instanceId)),
     playUnit: (address: BoardAddress, instanceId: string) => apply(playUnit(state, address, instanceId)),
     playUtility: (instanceId: string) => apply(playUtility(state, 0, instanceId)),

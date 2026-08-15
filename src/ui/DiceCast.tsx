@@ -1,25 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { rollDie } from '../game/random';
-import type { RollResult } from '../game/types';
+import type { DieRollResult, RollResult } from '../game/types';
 
 type CastPhase = 'casting' | 'revealed';
 
 interface VisibleCast {
   phase: CastPhase;
   roll: RollResult;
-  attackValue: number;
-  defenseValue?: number;
+  values: number[];
 }
 
 function randomFace(sides: number) {
   return rollDie(sides);
 }
 
-function PolyhedralDie({ sides, value, delay = 0 }: { sides: 20 | 100; value: number; delay?: number }) {
+const DIE_LABELS: Record<DieRollResult['kind'], string> = {
+  effect: 'Effect',
+  critical: 'Critical',
+  defense: 'Defense',
+};
+
+function PolyhedralDie({ die, value, delay = 0 }: { die: DieRollResult; value: number; delay?: number }) {
   return (
     <div className="die-readout" style={{ '--die-delay': `${delay}ms` } as React.CSSProperties}>
-      <span className="die-type">D{sides}</span>
-      <div className={`polyhedral-die die-d${sides}`}>
+      <span className="die-type">{DIE_LABELS[die.kind]} · D{die.sides}</span>
+      <div className={`polyhedral-die die-${die.kind}`}>
         <svg viewBox="0 0 120 120" aria-hidden="true">
           <polygon className="die-shell" points="60,4 108,32 108,88 60,116 12,88 12,32" />
           <path className="die-facets" d="M60 4 42 43l18 73m0-112 18 39-18 73M12 32l30 11-30 45m96-56L78 43l30 45M12 88l48-23 48 23M12 32l48 33 48-33" />
@@ -48,8 +53,7 @@ export function DiceCast({ roll }: { roll: RollResult | null }) {
     const preview = () => setVisible({
       phase: 'casting',
       roll,
-      attackValue: randomFace(20),
-      defenseValue: roll.defense === undefined ? undefined : randomFace(100),
+      values: roll.rolls.map(({ sides }) => randomFace(sides)),
     });
 
     preview();
@@ -59,8 +63,7 @@ export function DiceCast({ roll }: { roll: RollResult | null }) {
       setVisible({
         phase: 'revealed',
         roll,
-        attackValue: roll.attack,
-        defenseValue: roll.defense,
+        values: roll.rolls.map(({ value }) => value),
       });
     }, castingDuration);
     return () => {
@@ -85,11 +88,12 @@ export function DiceCast({ roll }: { roll: RollResult | null }) {
     <div className={`dice-cast-overlay ${visible.phase}`} role="dialog" aria-modal="true" aria-labelledby="dice-cast-title" aria-describedby="dice-cast-result">
       <div className="dice-cast-burst" aria-hidden="true" />
       <section className="dice-cast-panel">
-        <span className="dice-cast-kicker">COMBAT RESOLUTION</span>
+        <span className="dice-cast-kicker">DICE RESOLUTION</span>
         <h2 id="dice-cast-title">{isRevealed ? 'Roll resolved' : 'Casting dice'}</h2>
         <div className="dice-stage" aria-hidden="true">
-          <PolyhedralDie sides={20} value={visible.attackValue} />
-          {visible.defenseValue !== undefined && <PolyhedralDie sides={100} value={visible.defenseValue} delay={90} />}
+          {visible.roll.rolls.map((die, index) => (
+            <PolyhedralDie key={`${die.kind}-${index}`} die={die} value={visible.values[index]} delay={index * 90} />
+          ))}
         </div>
         <p className="dice-cast-result" id="dice-cast-result" aria-live="polite">
           {isRevealed ? visible.roll.summary : 'The rift is deciding the outcome…'}

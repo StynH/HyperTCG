@@ -1,4 +1,5 @@
 import { CARD_CATALOG, getCard } from '../data/catalog';
+import { createDeck, DECK_PRESETS, validateDeckPreset } from './deck';
 import { activateAbility, availableAttacks, chooseEffect, endPlayerTurn, playUnit, playUtility, useAttack } from './engine';
 import { modifierTotal } from './effectRuntime';
 import {
@@ -34,6 +35,23 @@ function run(name: string, test: () => void): TestResult {
 
 export function runEngineSelfTests(): TestResult[] {
   return [
+    run('builds ten legal 60-card presets and shuffles the entire deck', () => {
+      expect(DECK_PRESETS.length === 10, 'Expected exactly ten deck presets');
+      for (const preset of DECK_PRESETS) {
+        validateDeckPreset(preset);
+        const firstShuffle = createDeck(101, preset.id);
+        const secondShuffle = createDeck(202, preset.id);
+        expect(firstShuffle.length === 60, `${preset.name} did not create 60 cards`);
+        expect(
+          firstShuffle.map(({ cardId }) => cardId).join('|') !== secondShuffle.map(({ cardId }) => cardId).join('|'),
+          `${preset.name} did not shuffle as a complete deck`,
+        );
+        expect(
+          firstShuffle.slice(0, 5).map(({ cardId }) => cardId).join('|') !== secondShuffle.slice(0, 5).map(({ cardId }) => cardId).join('|'),
+          `${preset.name} used a fixed opening hand`,
+        );
+      }
+    }),
     run('plays a scripted Unit and emits its generic played event', () => {
       const state = cleanState();
       const held = { instanceId: id('conscript'), cardId: '069-conscript' };
@@ -59,8 +77,42 @@ export function runEngineSelfTests(): TestResult[] {
       expect(!result.error, result.error ?? 'Attack failed');
       expect(result.state.players[1].vanguard[0]?.currentHp === 40, 'Expected 10 Attack Damage');
       expect(!result.state.players[0].vanguard[0]?.isReady, 'Attacker was not Exhausted');
-      expect(result.state.lastRoll?.attack === 10 && result.state.lastRoll.defense === 63, 'Dice were not recorded');
+      expect(
+        result.state.lastRoll?.rolls.some(({ kind, value }) => kind === 'critical' && value === 10)
+          && result.state.lastRoll.rolls.some(({ kind, value }) => kind === 'defense' && value === 63),
+        'Dice were not recorded',
+      );
       expect(result.state.players[0].vanguard[0]?.instanceId === attacker, 'Wrong attacker changed');
+    }),
+    run('records an effect die for a non-damaging attack', () => {
+      const state = cleanState();
+      addUnit(state, 0, 'vanguard', 0, '019-lola-bunny');
+      addEnergy(state, 0, 'electron');
+      addEnergy(state, 0, 'gluon');
+      const result = useAttack(state, { player: 0, row: 'vanguard', index: 0 }, 1, null, randomValues(0.5));
+      const effectRoll = result.state.lastRoll?.rolls[0];
+      expect(effectRoll?.kind === 'effect' && effectRoll.sides === 6 && effectRoll.value === 4, 'Effect die was not recorded');
+    }),
+    run('records effect, Critical, and Defense dice for a damaging DR attack', () => {
+      const state = cleanState();
+      addUnit(state, 0, 'vanguard', 0, '009-raiden');
+      addUnit(state, 1, 'vanguard', 0, '069-conscript');
+      addAllEnergy(state, 0);
+      const result = useAttack(
+        state,
+        { player: 0, row: 'vanguard', index: 0 },
+        1,
+        { player: 1, row: 'vanguard', index: 0 },
+        randomValues(0.5, 0.49, 0.62),
+      );
+      const rolls = result.state.lastRoll?.rolls ?? [];
+      expect(
+        rolls.length === 3
+          && rolls[0].kind === 'effect' && rolls[0].sides === 10 && rolls[0].value === 6
+          && rolls[1].kind === 'critical' && rolls[1].value === 10
+          && rolls[2].kind === 'defense' && rolls[2].value === 63,
+        'The complete DR attack roll was not recorded',
+      );
     }),
     run('records a natural 1 as a failed combat roll', () => {
       const state = cleanState();
@@ -74,8 +126,10 @@ export function runEngineSelfTests(): TestResult[] {
         { player: 1, row: 'vanguard', index: 0 },
         randomValues(0),
       );
-      expect(result.state.lastRoll?.attack === 1, 'Natural 1 was not recorded');
-      expect(result.state.lastRoll.damage === 0, 'Failed attack recorded Damage');
+      const lastRoll = result.state.lastRoll;
+      expect(lastRoll !== null, 'Natural 1 roll was not recorded');
+      expect(lastRoll.rolls.some(({ kind, value }) => kind === 'critical' && value === 1), 'Natural 1 was not recorded');
+      expect(lastRoll.damage === 0, 'Failed attack recorded Damage');
       expect(result.state.players[1].vanguard[0]?.currentHp === 50, 'Failed attack dealt Damage');
     }),
     run('pauses and resumes a generic card-target choice', () => {

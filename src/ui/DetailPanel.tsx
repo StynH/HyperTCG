@@ -1,9 +1,29 @@
 import { getCard } from '../data/catalog';
 import type { CardInstance, UnitInPlay } from '../game/types';
+import alternativeTreatmentIcon from '../assets/card-treatments/alternative.png';
+import superTreatmentIcon from '../assets/card-treatments/super.png';
 import { Cost } from './EnergyOrb';
 
 function cleanText(text: string) {
   return text.replace(/\*\*/g, '').replace(/\[(DR|PR)\]/g, '$1');
+}
+
+function CardTreatmentBadge({ treatment }: { treatment: 'super' | 'alternative' }) {
+  const isSuper = treatment === 'super';
+
+  return (
+    <span
+      className={`card-treatment-badge treatment-${treatment}`}
+      role="img"
+      aria-label={isSuper ? 'SUPER Unit' : 'Alternative Unit'}
+    >
+      <img
+        src={isSuper ? superTreatmentIcon : alternativeTreatmentIcon}
+        alt=""
+        aria-hidden="true"
+      />
+    </span>
+  );
 }
 
 export function DetailPanel({ instance }: { instance: CardInstance | UnitInPlay | null }) {
@@ -22,11 +42,16 @@ export function DetailPanel({ instance }: { instance: CardInstance | UnitInPlay 
     <aside className="detail-panel glass" aria-label={`${card.name} card detail`}>
       <div className="detail-image-wrap">
         <img src={card.image} alt={`Full card: ${card.name}`} className="detail-image" />
-        <span className={`rarity rarity-${card.rarity}`}>{card.rarity}</span>
       </div>
       <div className="detail-content">
         <span className="eyebrow">{card.type} · {card.subtitle}</span>
         <h2>{card.name}</h2>
+        <div className="detail-badges" aria-label="Card classifications">
+          {card.unitTreatment && card.unitTreatment !== 'standard' && (
+            <CardTreatmentBadge treatment={card.unitTreatment} />
+          )}
+          <span className={`rarity rarity-${card.rarity}`}>{card.rarity}</span>
+        </div>
         <div className="detail-meta">
           <Cost cost={card.cost} isGenericCostVariable={card.isGenericCostVariable} />
           {card.kind === 'unit' && <><span><small>HP</small>{unit ? `${Math.max(0, unit.currentHp)} / ${card.hp}` : card.hp}</span><span><small>DEF</small>{card.defense}</span></>}

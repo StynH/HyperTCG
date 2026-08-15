@@ -1,6 +1,6 @@
 import { getCard } from '../data/catalog';
 import { getEffectScript } from '../data/effects';
-import { createDeck } from './deck';
+import { createDeck, DEFAULT_DECK_ID, getOpponentDeckId } from './deck';
 import {
   canActivate, dispatchGameEvent, expireModifiers, hasModifier, modifierTotal, payCardCost,
   paymentForCost, resolveEffectChoice, startActivatedEffects, startAttackEffects, startEffects,
@@ -17,8 +17,8 @@ const emptyRow = () => Array<UnitInPlay | null>(5).fill(null);
 const otherPlayer = (player: PlayerId): PlayerId => player === 0 ? 1 : 0;
 const cloneState = (state: GameState): GameState => structuredClone(state);
 
-function createPlayer(playerId: PlayerId, name: string, seed: number): PlayerState {
-  const deck = createDeck(seed).map((card) => ({ ...card, owner: playerId }));
+function createPlayer(playerId: PlayerId, name: string, seed: number, deckId: string): PlayerState {
+  const deck = createDeck(seed, deckId).map((card) => ({ ...card, owner: playerId }));
   return {
     name,
     hp: 250,
@@ -36,10 +36,19 @@ function createPlayer(playerId: PlayerId, name: string, seed: number): PlayerSta
   };
 }
 
-export function createGame(): GameState {
+export interface GameOptions {
+  playerDeckId?: string;
+  opponentDeckId?: string;
+}
+
+export function createGame(options: GameOptions = {}): GameState {
+  const playerDeckId = options.playerDeckId ?? DEFAULT_DECK_ID;
+  const opponentDeckId = options.opponentDeckId ?? getOpponentDeckId(playerDeckId);
+  const playerSeed = secureRandom.integer?.(0x1_0000_0000) ?? Math.floor(secureRandom() * 0x1_0000_0000);
+  const opponentSeed = secureRandom.integer?.(0x1_0000_0000) ?? Math.floor(secureRandom() * 0x1_0000_0000);
   const players: [PlayerState, PlayerState] = [
-    createPlayer(0, 'You', 4421),
-    createPlayer(1, 'Rift Automaton', 9917),
+    createPlayer(0, 'You', playerSeed, playerDeckId),
+    createPlayer(1, 'Rift Automaton', opponentSeed, opponentDeckId),
   ];
   players[0].turnCount = 1;
   return {
@@ -51,6 +60,7 @@ export function createGame(): GameState {
     winner: null,
     isOpponentActing: false,
     actionSequence: 0,
+    rollSequence: 0,
     usedActions: {},
     modifiers: [],
     pendingChoice: null,

@@ -14,6 +14,7 @@ Then open `http://127.0.0.1:4173`.
 ## Gameplay in this POC
 
 - Legal 60-card decks and five-card opening hands
+- Ten selectable, fully shuffled archetype decks with distinct strategies and Energy signatures
 - 250 player HP, deck-out loss, and direct attacks
 - Five Vanguard and five Backguard positions per player
 - Unlimited scrolling Utility zones

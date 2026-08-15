@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { getCard } from '../data/catalog';
+import { getDeckPreset } from '../game/deck';
 import { useGame } from '../game/useGame';
 import type { BoardAddress, CardInstance, UnitInPlay } from '../game/types';
 import { ActionDock } from './ActionDock';
@@ -13,8 +14,15 @@ import { LogoGlyph } from './MakerGraphics';
 
 interface UnitSelection { address: BoardAddress; unit: UnitInPlay }
 
-export function GameApp() {
-  const game = useGame();
+interface GameAppProps {
+  playerDeckId: string;
+  opponentDeckId: string;
+  onExit: () => void;
+}
+
+export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) {
+  const game = useGame(playerDeckId, opponentDeckId);
+  const playerDeck = getDeckPreset(playerDeckId);
   const [hovered, setHovered] = useState<CardInstance | UnitInPlay | null>(null);
   const [selectedHand, setSelectedHand] = useState<CardInstance | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<UnitSelection | null>(null);
@@ -103,8 +111,8 @@ export function GameApp() {
       <div className="cosmos" aria-hidden="true"><span className="nebula one" /><span className="nebula two" /><span className="grid-plane" /></div>
       <header className="topbar glass">
         <div className="brand"><LogoGlyph size={34} /><div><span>HYPERVERSE</span><small>TRADING CARD GAME</small></div></div>
-        <div className="match-state"><span className="round">ROUND {game.state.round}</span><strong>{topPrompt}</strong><span className="format">ORIG · SOLO</span></div>
-        <div className="header-actions"><button type="button" onClick={game.reset}>Restart match</button></div>
+        <div className="match-state"><span className="round">ROUND {game.state.round}</span><strong>{topPrompt}</strong><span className="format">{playerDeck.name} · SOLO</span></div>
+        <div className="header-actions"><button type="button" onClick={onExit}>Main menu</button><button type="button" onClick={game.reset}>Restart match</button></div>
       </header>
 
       <div className="game-grid">
@@ -133,7 +141,7 @@ export function GameApp() {
       <DiceCast roll={game.state.lastRoll} />
       {game.state.winner !== null && (
         <div className="result-overlay" role="dialog" aria-modal="true" aria-labelledby="result-title">
-          <div className="result-card glass"><LogoGlyph size={58} /><span>Match complete</span><h1 id="result-title">{game.state.winner === 0 ? 'Rift secured' : 'Signal lost'}</h1><p>{game.state.winner === 0 ? 'The opposing timeline has collapsed.' : 'The Rift Automaton controls this timeline.'}</p><button type="button" onClick={game.reset}>Play again</button></div>
+          <div className="result-card glass"><LogoGlyph size={58} /><span>Match complete</span><h1 id="result-title">{game.state.winner === 0 ? 'Rift secured' : 'Signal lost'}</h1><p>{game.state.winner === 0 ? 'The opposing timeline has collapsed.' : 'The Rift Automaton controls this timeline.'}</p><div className="result-actions"><button type="button" onClick={game.reset}>Play again</button><button type="button" onClick={onExit}>Change deck</button></div></div>
         </div>
       )}
       {game.state.pendingChoice?.player === 0 && <ChoicePanel choice={game.state.pendingChoice} onSubmit={game.choose} />}
