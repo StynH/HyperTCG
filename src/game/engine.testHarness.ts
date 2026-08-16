@@ -104,8 +104,8 @@ export function runEngineSelfTests(): TestResult[] {
       expect(result.state.players[1].vanguard[0]?.currentHp === 40, 'Expected 10 Attack Damage');
       expect(!result.state.players[0].vanguard[0]?.isReady, 'Attacker was not Exhausted');
       expect(
-        result.state.lastRoll?.rolls.some(({ kind, value }) => kind === 'critical' && value === 10)
-          && result.state.lastRoll.rolls.some(({ kind, value, target }) => kind === 'defense' && value === 63 && target === 25),
+        result.state.lastRoll?.rolls.some(({ kind, value, outcome }) => kind === 'critical' && value === 10 && outcome === 'attack-normal')
+          && result.state.lastRoll.rolls.some(({ kind, value, target, outcome }) => kind === 'defense' && value === 63 && target === 25 && outcome === 'defense-failure'),
         'Dice were not recorded',
       );
       expect(result.state.lastRoll?.combat?.attacker.instanceId === attacker, 'Combat roll omitted the attacking Unit');
@@ -152,7 +152,7 @@ export function runEngineSelfTests(): TestResult[] {
       addEnergy(state, 0, 'gluon');
       const result = useAttack(state, { player: 0, row: 'vanguard', index: 0 }, 1, null, randomValues(0.5));
       const effectRoll = result.state.lastRoll?.rolls[0];
-      expect(effectRoll?.kind === 'effect' && effectRoll.sides === 6 && effectRoll.value === 4, 'Effect die was not recorded');
+      expect(effectRoll?.kind === 'effect' && effectRoll.sides === 6 && effectRoll.value === 4 && effectRoll.outcome === 'effect-value', 'Effect die was not recorded');
     }),
     run('records effect, Critical, and Defense dice for a damaging DR attack', () => {
       const state = cleanState();
@@ -189,9 +189,28 @@ export function runEngineSelfTests(): TestResult[] {
       );
       const lastRoll = result.state.lastRoll;
       expect(lastRoll !== null, 'Natural 1 roll was not recorded');
-      expect(lastRoll.rolls.some(({ kind, value }) => kind === 'critical' && value === 1), 'Natural 1 was not recorded');
+      expect(lastRoll.rolls.some(({ kind, value, outcome }) => kind === 'critical' && value === 1 && outcome === 'attack-failed'), 'Natural 1 was not recorded');
       expect(lastRoll.damage === 0, 'Failed attack recorded Damage');
       expect(result.state.players[1].vanguard[0]?.currentHp === 50, 'Failed attack dealt Damage');
+    }),
+    run('records when Weakened prevents a natural 20 Critical Hit', () => {
+      const state = cleanState();
+      const attacker = addUnit(state, 0, 'vanguard', 0, '069-conscript');
+      addUnit(state, 1, 'vanguard', 0, '069-conscript');
+      addCondition(state, attacker, 'weakened');
+      addEnergy(state, 0, 'gluon');
+      const result = useAttack(
+        state,
+        { player: 0, row: 'vanguard', index: 0 },
+        0,
+        { player: 1, row: 'vanguard', index: 0 },
+        randomValues(0.999, 0.62),
+      );
+      expect(
+        result.state.lastRoll?.rolls.some(({ kind, value, outcome }) => kind === 'critical' && value === 20 && outcome === 'critical-prevented'),
+        'The prevented Critical Hit was not recorded',
+      );
+      expect(result.state.lastRoll?.damage === 10, 'Weakened incorrectly allowed the natural 20 to double Damage');
     }),
     run('pauses and resumes a generic card-target choice', () => {
       const state = cleanState();

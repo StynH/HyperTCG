@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { getCard } from '../data/catalog';
 import {
-  activateAbility, availableActivatedAbilities, availableAttacks, chooseEffect, createGame,
-  endPlayerTurn, mulliganOpeningHand, playEnergy, playUnit, playUtility, rotateUnit, runOpponentTurn, useAttack,
+  activateAbility, attackActionError, availableActivatedAbilities, availableAttacks, chooseEffect, createGame,
+  endPlayerTurn, mulliganOpeningHand, playEnergy, playEnergyActionError, playUnit, playUtility,
+  playUtilityActionError, rotateUnit, rotateUnitActionError, runOpponentTurn, useAttack,
 } from './engine';
 import type { BoardAddress, GameResult, GameState } from './types';
 
@@ -44,8 +46,17 @@ export function useGame(playerDeckId: string, opponentDeckId: string) {
     playUnit: (address: BoardAddress, instanceId: string) => apply(playUnit(state, address, instanceId)),
     playUtility: (instanceId: string) => apply(playUtility(state, 0, instanceId)),
     rotate: (address: BoardAddress) => apply(rotateUnit(state, address)),
+    rotateActionError: (address: BoardAddress) => rotateUnitActionError(state, address),
     attack: (source: BoardAddress, attackIndex: number, target: BoardAddress | null) => apply(useAttack(state, source, attackIndex, target)),
+    attackActionError: (source: BoardAddress, attackIndex: number) => attackActionError(state, source, attackIndex),
     attacksFor: (instanceId: string) => availableAttacks(state, instanceId),
+    handActionError: (instanceId: string) => {
+      const held = state.players[0].hand.find((card) => card.instanceId === instanceId);
+      if (!held) return 'That card is no longer in your hand.';
+      return getCard(held.cardId).kind === 'energy'
+        ? playEnergyActionError(state, 0, instanceId)
+        : playUtilityActionError(state, 0, instanceId);
+    },
     abilities: availableActivatedAbilities(state, 0),
     activateAbility: (sourceInstanceId: string, abilityId: string) => apply(activateAbility(state, 0, sourceInstanceId, abilityId)),
     choose: (selectedIds: readonly string[]) => apply(chooseEffect(state, selectedIds)),

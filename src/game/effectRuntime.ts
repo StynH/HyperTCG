@@ -474,11 +474,27 @@ function recordRoll(
 function resolvedAttackRolls(attack: AttackRuntime): DieRollResult[] {
   const rolls: DieRollResult[] = [];
   if (attack.effectDieSides > 0 && attack.dr > 0) {
-    rolls.push({ kind: 'effect', sides: attack.effectDieSides, value: attack.dr });
+    rolls.push({ kind: 'effect', sides: attack.effectDieSides, value: attack.dr, outcome: 'effect-value' });
   }
-  if (attack.criticalRoll > 0) rolls.push({ kind: 'critical', sides: 20, value: attack.criticalRoll });
+  if (attack.criticalRoll > 0) {
+    const outcome = attack.isFailed
+      ? 'attack-failed'
+      : attack.isCritical
+        ? 'critical-hit'
+        : attack.criticalRoll === 20
+          ? 'critical-prevented'
+          : 'attack-normal';
+    rolls.push({ kind: 'critical', sides: 20, value: attack.criticalRoll, outcome });
+  }
   if (attack.defenseRoll !== undefined) {
-    rolls.push({ kind: 'defense', sides: 100, value: attack.defenseRoll, target: attack.defenseTarget });
+    const outcome = attack.defenseRoll <= 5
+      ? 'critical-defense'
+      : attack.defenseRoll >= 95
+        ? 'critical-defense-failure'
+        : attack.defenseRoll <= (attack.defenseTarget ?? 0)
+          ? 'defense-success'
+          : 'defense-failure';
+    rolls.push({ kind: 'defense', sides: 100, value: attack.defenseRoll, target: attack.defenseTarget, outcome });
   }
   return rolls;
 }
@@ -1313,7 +1329,7 @@ function executeOperation(
       }
       recordRoll(
         state,
-        [{ kind: 'effect', sides, value: result }],
+        [{ kind: 'effect', sides, value: result, outcome: 'effect-value' }],
         0,
         'Effect die resolved: ' + result + ' on d' + sides + '.',
         continuation.attack ? attackRollContext(continuation.attack) : undefined,
@@ -1454,7 +1470,7 @@ function executeInternal(
       });
       recordRoll(
         state,
-        [{ kind: 'effect', sides: operation.sides, value: attack.dr }],
+        [{ kind: 'effect', sides: operation.sides, value: attack.dr, outcome: 'effect-value' }],
         0,
         attack.attackName + ' effect die: ' + attack.dr + '.',
         attackRollContext(attack),

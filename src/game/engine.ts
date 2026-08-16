@@ -162,16 +162,23 @@ export function mulliganOpeningHand(
   return { state: next };
 }
 
-export function playEnergy(state: GameState, playerId: PlayerId, instanceId: string): GameResult {
+export function playEnergyActionError(state: GameState, playerId: PlayerId, instanceId: string): string | null {
   const blocked = actionBlocked(state);
-  if (blocked) return { state, error: blocked };
-  if (state.activePlayer !== playerId || state.winner !== null) return { state, error: 'It is not your turn.' };
+  if (blocked) return blocked;
+  if (state.activePlayer !== playerId || state.winner !== null) return 'It is not your turn.';
+  const player = state.players[playerId];
+  const allowed = 1 + modifierTotal(state, null, playerId, 'extra-energy-play');
+  if (player.energyPlaysThisTurn >= allowed) return 'You have used every Energy play available this turn.';
+  const held = player.hand.find((item) => item.instanceId === instanceId);
+  if (!held || getCard(held.cardId).kind !== 'energy') return 'That card is not an Energy.';
+  return null;
+}
+
+export function playEnergy(state: GameState, playerId: PlayerId, instanceId: string): GameResult {
+  const unavailable = playEnergyActionError(state, playerId, instanceId);
+  if (unavailable) return { state, error: unavailable };
   const next = cloneState(state);
   const player = next.players[playerId];
-  const allowed = 1 + modifierTotal(next, null, playerId, 'extra-energy-play');
-  if (player.energyPlaysThisTurn >= allowed) return { state, error: 'You have used every Energy play available this turn.' };
-  const held = player.hand.find((item) => item.instanceId === instanceId);
-  if (!held || getCard(held.cardId).kind !== 'energy') return { state, error: 'That card is not an Energy.' };
   const removed = removeFromHand(player, instanceId)!;
   const definition = getCard(removed.cardId);
   player.energies.push({ ...removed, owner: removed.owner ?? playerId, energyType: definition.energyType!, isTapped: false });
@@ -224,19 +231,29 @@ export function playUnit(state: GameState, address: BoardAddress, instanceId: st
   return { state: next };
 }
 
-export function playUtility(state: GameState, playerId: PlayerId, instanceId: string): GameResult {
+export function playUtilityActionError(state: GameState, playerId: PlayerId, instanceId: string): string | null {
   const blocked = actionBlocked(state);
-  if (blocked) return { state, error: blocked };
-  if (state.winner !== null) return { state, error: 'The match is over.' };
+  if (blocked) return blocked;
+  if (state.winner !== null) return 'The match is over.';
   const held = state.players[playerId].hand.find((item) => item.instanceId === instanceId);
-  if (!held) return { state, error: 'That card is no longer in your hand.' };
+  if (!held) return 'That card is no longer in your hand.';
   const card = getCard(held.cardId);
-  if (card.kind !== 'utility') return { state, error: 'That card is not a Utility.' };
-  if (state.activePlayer !== playerId && card.utilityType !== 'free') return { state, error: 'Only Free Effects can be played during the opposing turn.' };
+  if (card.kind !== 'utility') return 'That card is not a Utility.';
+  if (state.activePlayer !== playerId && card.utilityType !== 'free') return 'Only Free Effects can be played during the opposing turn.';
   const conditionError = utilityConditionError(state, playerId, instanceId);
-  if (conditionError) return { state, error: conditionError };
+  if (conditionError) return conditionError;
+  const paymentState = cloneState(state);
+  if (!payCardCost(paymentState, playerId, card.id, 'utility')) return 'You do not have the required Ready Energy.';
+  return null;
+}
+
+export function playUtility(state: GameState, playerId: PlayerId, instanceId: string): GameResult {
+  const unavailable = playUtilityActionError(state, playerId, instanceId);
+  if (unavailable) return { state, error: unavailable };
+  const held = state.players[playerId].hand.find((item) => item.instanceId === instanceId)!;
+  const card = getCard(held.cardId);
   const next = cloneState(state);
-  if (!payCardCost(next, playerId, card.id, 'utility')) return { state, error: 'You do not have the required Ready Energy.' };
+  payCardCost(next, playerId, card.id, 'utility');
   const removed = removeFromHand(next.players[playerId], instanceId)!;
   if (card.utilityType === 'continuous' || card.utilityType === 'equipment') next.players[playerId].utilities.push(removed);
   else next.players[playerId].vanquished.push(removed);
@@ -251,20 +268,30 @@ export function playUtility(state: GameState, playerId: PlayerId, instanceId: st
   return { state: next };
 }
 
-export function rotateUnit(state: GameState, address: BoardAddress): GameResult {
+export function rotateUnitActionError(state: GameState, address: BoardAddress): string | null {
   const blocked = actionBlocked(state);
-  if (blocked) return { state, error: blocked };
-  if (state.activePlayer !== address.player || state.winner !== null) return { state, error: 'It is not your turn.' };
-  const next = cloneState(state);
-  const player = next.players[address.player];
+  if (blocked) return blocked;
+  if (state.activePlayer !== address.player || state.winner !== null) return 'It is not your turn.';
+  const player = state.players[address.player];
   const unit = player[address.row][address.index];
-  if (!unit?.isReady) return { state, error: 'Only a Ready Unit can Rotate.' };
-  if (unit.conditions.some(({ name }) => name === 'paralyzed')) return { state, error: 'A Paralyzed Unit cannot Rotate.' };
-  if (hasModifier(next, unit.instanceId, null, 'cannot-rotate')
-    && !hasModifier(next, unit.instanceId, null, 'ignore-rotation-prevention')) return { state, error: 'That Unit cannot Rotate right now.' };
+  if (!unit?.isReady) return 'Only a Ready Unit can Rotate.';
+  if (unit.conditions.some(({ name }) => name === 'paralyzed')) return 'A Paralyzed Unit cannot Rotate.';
+  if (hasModifier(state, unit.instanceId, null, 'cannot-rotate')
+    && !hasModifier(state, unit.instanceId, null, 'ignore-rotation-prevention')) return 'That Unit cannot Rotate right now.';
   const destination: RowName = address.row === 'vanguard' ? 'backguard' : 'vanguard';
   const openIndex = player[destination].findIndex((slot) => slot === null);
-  if (openIndex < 0) return { state, error: 'The ' + destination + ' is full.' };
+  if (openIndex < 0) return 'The ' + destination + ' is full.';
+  return null;
+}
+
+export function rotateUnit(state: GameState, address: BoardAddress): GameResult {
+  const unavailable = rotateUnitActionError(state, address);
+  if (unavailable) return { state, error: unavailable };
+  const next = cloneState(state);
+  const player = next.players[address.player];
+  const unit = player[address.row][address.index]!;
+  const destination: RowName = address.row === 'vanguard' ? 'backguard' : 'vanguard';
+  const openIndex = player[destination].findIndex((slot) => slot === null);
   player[address.row][address.index] = null;
   unit.isReady = false;
   player[destination][openIndex] = unit;
@@ -314,6 +341,22 @@ function isDamagingAttack(attack: AttackDefinition) {
   return /^\d/.test(attack.damage);
 }
 
+export function attackActionError(state: GameState, source: BoardAddress, attackIndex: number): string | null {
+  const blocked = actionBlocked(state);
+  if (blocked) return blocked;
+  if (state.activePlayer !== source.player || state.winner !== null) return 'It is not your turn.';
+  if (!state.players[source.player].hasTakenFirstTurn) return 'You cannot attack on your first turn.';
+  const attacker = state.players[source.player][source.row][source.index];
+  if (!attacker?.isReady) return 'Choose a Ready Unit.';
+  if (attacker.conditions.some(({ name }) => name === 'paralyzed' || name === 'cowering')) return 'That Condition prevents this Unit from attacking.';
+  if (hasModifier(state, attacker.instanceId, null, 'cannot-attack')) return 'That Unit cannot attack right now.';
+  const option = availableAttacks(state, attacker.instanceId)[attackIndex];
+  if (!option) return 'That attack does not exist.';
+  if (source.row === 'backguard' && option.attack.damage !== 'BG') return 'Only BG attacks may be used from the Backguard.';
+  if (!paymentForCost(state, source.player, option.attack.cost)) return 'You do not have the required Ready Energy.';
+  return null;
+}
+
 export function useAttack(
   state: GameState,
   source: BoardAddress,
@@ -321,18 +364,11 @@ export function useAttack(
   target: BoardAddress | null,
   random: () => number = secureRandom,
 ): GameResult {
-  const blocked = actionBlocked(state);
-  if (blocked) return { state, error: blocked };
-  if (state.activePlayer !== source.player || state.winner !== null) return { state, error: 'It is not your turn.' };
-  if (!state.players[source.player].hasTakenFirstTurn) return { state, error: 'You cannot attack on your first turn.' };
-  const attacker = state.players[source.player][source.row][source.index];
-  if (!attacker?.isReady) return { state, error: 'Choose a Ready Unit.' };
-  if (attacker.conditions.some(({ name }) => name === 'paralyzed' || name === 'cowering')) return { state, error: 'That Condition prevents this Unit from attacking.' };
-  if (hasModifier(state, attacker.instanceId, null, 'cannot-attack')) return { state, error: 'That Unit cannot attack right now.' };
+  const unavailable = attackActionError(state, source, attackIndex);
+  if (unavailable) return { state, error: unavailable };
+  const attacker = state.players[source.player][source.row][source.index]!;
   const option = availableAttacks(state, attacker.instanceId)[attackIndex];
-  if (!option) return { state, error: 'That attack does not exist.' };
   const { attack, script } = option;
-  if (source.row === 'backguard' && attack.damage !== 'BG') return { state, error: 'Only BG attacks may be used from the Backguard.' };
   const defenderId = otherPlayer(source.player);
   const defendingUnits = [...state.players[defenderId].vanguard, ...state.players[defenderId].backguard].filter(Boolean);
   if (isDamagingAttack(attack)) {
@@ -341,7 +377,7 @@ export function useAttack(
     if (target && !state.players[target.player][target.row][target.index]) return { state, error: 'That target is no longer present.' };
   }
   const next = cloneState(state);
-  if (!payAttackCost(next, source.player, attack.cost)) return { state, error: 'You do not have the required Ready Energy.' };
+  payAttackCost(next, source.player, attack.cost);
   const nextAttacker = next.players[source.player][source.row][source.index]!;
   nextAttacker.isReady = false;
   const targetId = target ? next.players[target.player][target.row][target.index]?.instanceId ?? null : null;

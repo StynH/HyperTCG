@@ -38,6 +38,9 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
   const isPlacingUnit = canAct && selectedHandCard?.kind === 'unit';
   const isTargeting = canAct && pendingAttack !== null;
   const selectedAttacks = selectedUnit ? game.attacksFor(selectedUnit.unit.instanceId) : [];
+  const selectedAttackErrors = selectedUnit
+    ? selectedAttacks.map((_, index) => game.attackActionError(selectedUnit.address, index))
+    : [];
   const selectedSourceId = selectedUnit?.unit.instanceId ?? selectedUtility?.instanceId;
   const selectedAbilities = selectedSourceId
     ? game.abilities.filter(({ sourceInstanceId }) => sourceInstanceId === selectedSourceId)
@@ -157,8 +160,10 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
             pendingAttack={pendingAttack}
             canAct={canAct}
             attacks={selectedAttacks}
+            attackErrors={selectedAttackErrors}
             abilities={selectedAbilities}
-            canPlayHand={canUseHand}
+            canPlayHand={Boolean(selectedHand && !game.handActionError(selectedHand.instanceId))}
+            canRotate={Boolean(selectedUnit && !game.rotateActionError(selectedUnit.address))}
             onRotate={() => { if (selectedUnit && game.rotate(selectedUnit.address)) clearSelection(); }}
             onAttack={beginAttack}
             onPlayHand={playSelectedHand}

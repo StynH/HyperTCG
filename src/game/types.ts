@@ -93,6 +93,16 @@ export interface DieRollResult {
   sides: number;
   value: number;
   target?: number;
+  outcome?:
+    | 'effect-value'
+    | 'attack-failed'
+    | 'attack-normal'
+    | 'critical-hit'
+    | 'critical-prevented'
+    | 'critical-defense'
+    | 'defense-success'
+    | 'defense-failure'
+    | 'critical-defense-failure';
 }
 
 export interface RollResult {
