@@ -1,7 +1,10 @@
 import { CARD_CATALOG, getCard } from '../data/catalog';
 import { createDeck, DECK_PRESETS, validateDeckPreset } from './deck';
-import { activateAbility, availableAttacks, chooseEffect, endPlayerTurn, playUnit, playUtility, useAttack } from './engine';
-import { modifierTotal } from './effectRuntime';
+import {
+  activateAbility, availableAttacks, chooseEffect, createGame, endPlayerTurn, mulliganOpeningHand,
+  playUnit, playUtility, useAttack,
+} from './engine';
+import { modifierTotal, startEffects } from './effectRuntime';
 import {
   addAllTestEnergy, addTestCondition, addTestEnergy, addTestUnit, createCleanTestState,
   deterministicRandom, populateTestZones, resolveAllTestChoices, testInstanceId,
@@ -47,10 +50,33 @@ export function runEngineSelfTests(): TestResult[] {
           `${preset.name} did not shuffle as a complete deck`,
         );
         expect(
-          firstShuffle.slice(0, 5).map(({ cardId }) => cardId).join('|') !== secondShuffle.slice(0, 5).map(({ cardId }) => cardId).join('|'),
+          firstShuffle.slice(0, 7).map(({ cardId }) => cardId).join('|') !== secondShuffle.slice(0, 7).map(({ cardId }) => cardId).join('|'),
           `${preset.name} used a fixed opening hand`,
         );
       }
+    }),
+    run('deals seven cards and allows an opening mulligan of up to three', () => {
+      const state = createGame();
+      expect(state.players[0].hand.length === 7, 'Player did not receive seven opening cards');
+      expect(state.players[1].hand.length === 7, 'Opponent did not receive seven opening cards');
+      expect(state.players[0].deck.length === 53 && state.players[1].deck.length === 53, 'Opening deal did not leave 53-card decks');
+      expect(state.pendingMulligan?.maxCards === 3, 'Opening mulligan did not allow up to three cards');
+
+      const originalCards = [...state.players[0].hand, ...state.players[0].deck]
+        .map(({ instanceId }) => instanceId).sort().join('|');
+      const selected = state.players[0].hand.slice(0, 3).map(({ instanceId }) => instanceId);
+      const result = mulliganOpeningHand(state, selected, randomValues(0.2));
+      expect(!result.error, result.error ?? 'Opening mulligan failed');
+      expect(result.state.pendingMulligan === null, 'Opening mulligan did not complete');
+      expect(result.state.players[0].hand.length === 7, 'Mulligan changed the opening hand size');
+      expect(result.state.players[0].deck.length === 53, 'Mulligan changed the deck size');
+      const resultingCards = [...result.state.players[0].hand, ...result.state.players[0].deck]
+        .map(({ instanceId }) => instanceId).sort().join('|');
+      expect(resultingCards === originalCards, 'Mulligan lost or duplicated cards');
+      expect(state.pendingMulligan !== null, 'Mulligan mutated the original state');
+
+      const tooMany = mulliganOpeningHand(state, state.players[0].hand.slice(0, 4).map(({ instanceId }) => instanceId));
+      expect(Boolean(tooMany.error?.includes('up to 3')), 'Mulligan accepted more than three cards');
     }),
     run('plays a scripted Unit and emits its generic played event', () => {
       const state = cleanState();
@@ -65,7 +91,7 @@ export function runEngineSelfTests(): TestResult[] {
     run('resolves Critical d20, Defense Check, Damage, and Exhaustion', () => {
       const state = cleanState();
       const attacker = addUnit(state, 0, 'vanguard', 0, '069-conscript');
-      addUnit(state, 1, 'vanguard', 0, '069-conscript');
+      const defender = addUnit(state, 1, 'vanguard', 0, '069-conscript');
       addEnergy(state, 0, 'gluon');
       const result = useAttack(
         state,
@@ -79,10 +105,45 @@ export function runEngineSelfTests(): TestResult[] {
       expect(!result.state.players[0].vanguard[0]?.isReady, 'Attacker was not Exhausted');
       expect(
         result.state.lastRoll?.rolls.some(({ kind, value }) => kind === 'critical' && value === 10)
-          && result.state.lastRoll.rolls.some(({ kind, value }) => kind === 'defense' && value === 63),
+          && result.state.lastRoll.rolls.some(({ kind, value, target }) => kind === 'defense' && value === 63 && target === 25),
         'Dice were not recorded',
       );
+      expect(result.state.lastRoll?.combat?.attacker.instanceId === attacker, 'Combat roll omitted the attacking Unit');
+      expect(result.state.lastRoll?.combat?.defender.name === 'Conscript', 'Combat roll omitted the defending Unit');
+      expect(result.state.lastRoll?.combat?.attackName === 'Ordered Forward', 'Combat roll omitted the selected Attack');
+      const attackFeed = result.state.log.find(({ kind }) => kind === 'attack');
+      expect(attackFeed?.source?.instanceId === attacker, 'Rift Feed attack omitted its source card');
+      expect(attackFeed?.target?.instanceId === defender, 'Rift Feed attack omitted its target card');
+      expect(attackFeed?.action === 'Ordered Forward', 'Rift Feed attack omitted the selected Attack');
+      const damageFeed = result.state.log.find(({ kind }) => kind === 'damage');
+      expect(damageFeed?.source?.instanceId === attacker, 'Rift Feed Damage omitted its source card');
+      expect(damageFeed?.target?.instanceId === defender, 'Rift Feed Damage omitted its target card');
+      expect(damageFeed?.amount === 10, 'Rift Feed Damage omitted its amount');
       expect(result.state.players[0].vanguard[0]?.instanceId === attacker, 'Wrong attacker changed');
+    }),
+    run('keeps face-down Vanquished cards hidden and untargetable', () => {
+      const state = cleanState();
+      const hidden = { instanceId: id('hidden-vanquished'), cardId: '069-conscript' };
+      state.players[0].hand.push(hidden);
+      startEffects(state, 0, 'rules', [
+        { op: 'move', cards: { zone: 'hand', controller: 'actor' }, to: 'vanquished', faceDown: true },
+      ]);
+      expect(state.players[0].vanquished[0]?.isFaceDown, 'Move did not preserve face-down state');
+      startEffects(state, 0, hidden.instanceId, [
+        { op: 'move', cards: 'source', to: 'hand-owner' },
+      ]);
+      expect(state.players[0].vanquished[0]?.instanceId === hidden.instanceId, 'An effect targeted a face-down Vanquished card');
+      expect(state.players[0].hand.length === 0, 'A face-down Vanquished card was revealed by movement');
+
+      const privacyState = cleanState();
+      const privateUnit = addUnit(privacyState, 0, 'vanguard', 0, '069-conscript');
+      startEffects(privacyState, 0, privateUnit, [
+        { op: 'vanquish', target: 'source', faceDown: true },
+      ]);
+      const privateFeed = privacyState.log.find(({ kind }) => kind === 'vanquish');
+      expect(privateFeed?.message === 'A card was Vanquished face down.', 'Face-down feed revealed the card name');
+      expect(!privateFeed?.source?.cardId && !privateFeed?.target?.cardId, 'Face-down feed exposed card metadata');
+      expect(privateFeed?.target?.name === 'Face-down card', 'Face-down feed omitted its hidden target marker');
     }),
     run('records an effect die for a non-damaging attack', () => {
       const state = cleanState();

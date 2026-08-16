@@ -488,7 +488,7 @@ function assertExpectation(
       return;
     }
     case 'log':
-      expect(context.state.log.some((entry) => entry.includes(expectation.includes)), `Log does not include “${expectation.includes}”.`);
+      expect(context.state.log.some((entry) => entry.message.includes(expectation.includes)), `Log does not include “${expectation.includes}”.`);
       return;
     case 'winner':
       expect(context.state.winner === expectation.player,

@@ -8,12 +8,15 @@ interface ActionDockProps {
   notice: string;
   handSelection: CardInstance | null;
   unitSelection: { address: BoardAddress; unit: UnitInPlay } | null;
+  utilitySelection: CardInstance | null;
   pendingAttack: number | null;
   canAct: boolean;
+  canPlayHand: boolean;
   attacks: AvailableAttack[];
   abilities: Array<{ sourceInstanceId: string; cardId: string; abilityId: string; name: string }>;
   onRotate: () => void;
   onAttack: (index: number) => void;
+  onPlayHand: () => void;
   onAbility: (sourceInstanceId: string, abilityId: string) => void;
   onCancel: () => void;
   onEndTurn: () => void;
@@ -26,22 +29,34 @@ function AttackButton({ attack, selected, onClick }: { attack: AttackDefinition;
 }
 
 export function ActionDock(props: ActionDockProps) {
-  const selected = props.handSelection ? getCard(props.handSelection.cardId) : props.unitSelection ? getCard(props.unitSelection.unit.cardId) : null;
+  const selected = props.handSelection
+    ? getCard(props.handSelection.cardId)
+    : props.unitSelection
+      ? getCard(props.unitSelection.unit.cardId)
+      : props.utilitySelection
+        ? getCard(props.utilitySelection.cardId)
+        : null;
   return (
     <section className="action-dock glass" aria-live="polite">
       <div className="action-prompt"><ApertureIcon size={24} /><div><small>COMMAND</small><p>{props.pendingAttack !== null ? 'Choose a highlighted opposing Vanguard target.' : props.notice}</p></div></div>
       <div className="action-options">
         {props.handSelection && selected?.kind === 'unit' && <span className="placement-help">Choose a highlighted Vanguard or Backguard slot</span>}
+        {props.handSelection && selected && selected.kind !== 'unit' && (
+          <button className={`play-card-action play-${selected.kind}`} type="button" disabled={!props.canPlayHand} onClick={props.onPlayHand}>
+            <span><b>Play {selected.kind === 'energy' ? 'Energy' : 'Utility'}</b><small>{selected.name}</small></span>
+            {selected.kind === 'utility' && <Cost cost={selected.cost} isGenericCostVariable={selected.isGenericCostVariable} />}
+          </button>
+        )}
         {props.unitSelection?.address.player === 0 && selected?.kind === 'unit' && <>
           <button className="secondary-action" type="button" disabled={!props.canAct || !props.unitSelection.unit.isReady} onClick={props.onRotate}>Rotate Unit</button>
           {props.attacks.map(({ attack, providerCardId }, index) => <AttackButton key={providerCardId + attack.id} attack={attack} selected={props.pendingAttack === index} onClick={() => props.onAttack(index)} />)}
         </>}
         {props.abilities.map((ability) => (
           <button className="secondary-action" type="button" key={ability.sourceInstanceId + ability.abilityId} disabled={!props.canAct} onClick={() => props.onAbility(ability.sourceInstanceId, ability.abilityId)}>
-            {getCard(ability.cardId).name}: {ability.name}
+            {ability.name}
           </button>
         ))}
-        {(props.handSelection || props.unitSelection || props.pendingAttack !== null) && <button className="cancel-action" type="button" onClick={props.onCancel}>Cancel</button>}
+        {(props.handSelection || props.unitSelection || props.utilitySelection || props.pendingAttack !== null) && <button className="cancel-action" type="button" onClick={props.onCancel}>Cancel</button>}
       </div>
       <button className="end-turn" type="button" disabled={!props.canAct} onClick={props.onEndTurn}><span>End turn</span><small>Pass priority</small><i>→</i></button>
     </section>

@@ -80,6 +80,7 @@ export interface EffectMove {
   controller?: ControllerRef;
   slots?: CardRef;
   ready?: boolean;
+  faceDown?: boolean;
 }
 
 export type ModifierKind =
@@ -111,7 +112,7 @@ export type EffectOperation =
   | { op: 'ready'; target: CardRef | CardSelector }
   | { op: 'exhaust'; target: CardRef | CardSelector }
   | { op: 'rotate'; target: CardRef | CardSelector; exhaust?: boolean }
-  | { op: 'vanquish'; target: CardRef | CardSelector }
+  | { op: 'vanquish'; target: CardRef | CardSelector; faceDown?: boolean }
   | { op: 'condition'; target: CardRef | CardSelector; condition: ConditionName; amount?: ValueExpression }
   | { op: 'remove-conditions'; target: CardRef | CardSelector; conditions?: readonly ConditionName[] }
   | { op: 'if'; condition: ConditionExpression; then: readonly EffectOperation[]; else?: readonly EffectOperation[] }

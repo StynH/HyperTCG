@@ -28,7 +28,11 @@ export function CardTile({ instance, currentHp, isReady = true, isSelected, isTa
         <span className="hp-chip"><small>HP</small>{Math.max(0, currentHp)}</span>
       )}
       {!isReady && <span className="status-chip">Exhausted</span>}
-      {'conditions' in instance && instance.conditions.length > 0 && <span className="status-chip condition-chip">{instance.conditions.map(({ name }) => name).join(' · ')}</span>}
+      {'conditions' in instance && instance.conditions.length > 0 && (
+        <span className="status-chip condition-chip">
+          {instance.conditions.map(({ name, amount }) => `${name}${amount === undefined ? '' : ` ${amount}`}`).join(' · ')}
+        </span>
+      )}
     </button>
   );
 }

@@ -23,6 +23,7 @@ export function createCleanTestState(): GameState {
     player.hasTakenFirstTurn = true;
   }
   state.log = [];
+  state.pendingMulligan = null;
   state.turnEvents = [];
   return state;
 }

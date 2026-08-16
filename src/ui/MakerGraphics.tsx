@@ -1,14 +1,20 @@
 import { useLayoutEffect, useRef, type CSSProperties } from 'react';
 import anyEnergySymbol from '../assets/energy-symbols/any.png';
 import blankEnergySymbol from '../assets/energy-symbols/blank.png';
+import bosonEmptyEnergySymbol from '../assets/energy-symbols/boson-empty.png';
 import bosonEnergySymbol from '../assets/energy-symbols/boson.png';
+import electronEmptyEnergySymbol from '../assets/energy-symbols/electron-empty.png';
 import electronEnergySymbol from '../assets/energy-symbols/electron.png';
+import gluonEmptyEnergySymbol from '../assets/energy-symbols/gluon-empty.png';
 import gluonEnergySymbol from '../assets/energy-symbols/gluon.png';
+import muonEmptyEnergySymbol from '../assets/energy-symbols/muon-empty.png';
 import muonEnergySymbol from '../assets/energy-symbols/muon.png';
+import neutrinoEmptyEnergySymbol from '../assets/energy-symbols/neutrino-empty.png';
 import neutrinoEnergySymbol from '../assets/energy-symbols/neutrino.png';
+import photonEmptyEnergySymbol from '../assets/energy-symbols/photon-empty.png';
 import photonEnergySymbol from '../assets/energy-symbols/photon.png';
 import { ENERGY_META } from '../data/catalog';
-import type { CostType } from '../game/types';
+import type { CostType, EnergyType } from '../game/types';
 
 const ENERGY_SYMBOLS: Record<CostType, string> = {
   any: anyEnergySymbol,
@@ -18,6 +24,15 @@ const ENERGY_SYMBOLS: Record<CostType, string> = {
   muon: muonEnergySymbol,
   neutrino: neutrinoEnergySymbol,
   photon: photonEnergySymbol,
+};
+
+const EMPTY_ENERGY_SYMBOLS: Record<EnergyType, string> = {
+  boson: bosonEmptyEnergySymbol,
+  electron: electronEmptyEnergySymbol,
+  gluon: gluonEmptyEnergySymbol,
+  muon: muonEmptyEnergySymbol,
+  neutrino: neutrinoEmptyEnergySymbol,
+  photon: photonEmptyEnergySymbol,
 };
 
 function energyLabel(energy: CostType) {
@@ -55,7 +70,9 @@ function OrbCount({ value }: { value: number | 'X' }) {
 export function MakerEnergyOrb({ energy, size = 24, count }: { energy: CostType; size?: number; count?: number | 'X' }) {
   const numbered = count !== undefined;
   const label = energyLabel(energy);
-  const symbol = numbered ? blankEnergySymbol : ENERGY_SYMBOLS[energy];
+  const symbol = numbered
+    ? energy === 'any' ? blankEnergySymbol : EMPTY_ENERGY_SYMBOLS[energy]
+    : ENERGY_SYMBOLS[energy];
   return (
     <span className="maker-energy-orb" style={orbStyle(symbol, size)} role="img" aria-label={numbered ? `${count} ${label} Energy` : `${label} Energy`} title={label}>
       {numbered && <OrbCount value={count} />}

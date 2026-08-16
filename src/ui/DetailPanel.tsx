@@ -1,4 +1,5 @@
 import { getCard } from '../data/catalog';
+import type { ConditionName } from '../game/effectTypes';
 import type { CardInstance, UnitInPlay } from '../game/types';
 import alternativeTreatmentIcon from '../assets/card-treatments/alternative.png';
 import superTreatmentIcon from '../assets/card-treatments/super.png';
@@ -6,6 +7,21 @@ import { Cost } from './EnergyOrb';
 
 function cleanText(text: string) {
   return text.replace(/\*\*/g, '').replace(/\[(DR|PR)\]/g, '$1');
+}
+
+const CONDITION_DETAILS: Record<ConditionName, (amount?: number, turns?: number) => string> = {
+  paralyzed: (_amount, turns = 0) => `Cannot Attack or Rotate · ${Math.max(0, 2 - turns)} controller turn${2 - turns === 1 ? '' : 's'} remaining`,
+  cowering: () => 'Cannot Attack · coin flip to recover at turn end',
+  weakened: () => 'Cannot roll for a Critical Hit',
+  infected: (amount = 0) => `Takes ${amount} Effect Damage at the start of its controller’s turn`,
+  doomed: () => 'Vanquished at the start of its controller’s next turn',
+  cursed: () => 'Another allied Unit takes 20 Effect Damage at turn end',
+  tranquil: () => 'Negates and removes the next non-Tranquil Condition',
+};
+
+function conditionLabel(name: ConditionName, amount?: number) {
+  const title = name.charAt(0).toUpperCase() + name.slice(1);
+  return amount === undefined ? title : `${title} ${amount}`;
 }
 
 function CardTreatmentBadge({ treatment }: { treatment: 'super' | 'alternative' }) {
@@ -56,6 +72,19 @@ export function DetailPanel({ instance }: { instance: CardInstance | UnitInPlay 
           <Cost cost={card.cost} isGenericCostVariable={card.isGenericCostVariable} />
           {card.kind === 'unit' && <><span><small>HP</small>{unit ? `${Math.max(0, unit.currentHp)} / ${card.hp}` : card.hp}</span><span><small>DEF</small>{card.defense}</span></>}
         </div>
+        {unit?.conditions.length ? (
+          <section className="status-conditions" aria-labelledby="status-conditions-title">
+            <h3 id="status-conditions-title">Status Conditions</h3>
+            <div>
+              {unit.conditions.map(({ name, amount, controllerTurns }) => (
+                <article className={`condition-readout condition-${name}`} key={name}>
+                  <strong>{conditionLabel(name, amount)}</strong>
+                  <span>{CONDITION_DETAILS[name](amount, controllerTurns)}</span>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
         {card.abilities.map((ability) => (
           <section className="rule-block" key={ability.id}><h3>{ability.name}</h3><p>{cleanText(ability.text)}</p></section>
         ))}
@@ -73,7 +102,6 @@ export function DetailPanel({ instance }: { instance: CardInstance | UnitInPlay 
             {card.utilityAttack.effect && <p>{cleanText(card.utilityAttack.effect)}</p>}
           </section>
         )}
-        {unit?.conditions.length ? <section className="rule-block"><h3>Conditions</h3><p>{unit.conditions.map(({ name, amount }) => `${name}${amount ? ` ${amount}` : ''}`).join(', ')}</p></section> : null}
         {card.kind === 'utility' && (
           <section className="rule-block"><h3>{card.utilityType} effect</h3><p>{cleanText(card.utilityEffect || card.utilityCondition)}</p></section>
         )}

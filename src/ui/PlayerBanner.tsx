@@ -10,7 +10,7 @@ export function PlayerBanner({ player, active, opponent }: { player: PlayerState
       </div>
       <div className="player-stat hp"><span>HP</span><b>{player.hp}</b></div>
       <div className="player-stat"><span>Deck</span><b>{player.deck.length}</b></div>
-      <div className="player-stat"><span>Void</span><b>{player.vanquished.length}</b></div>
+      <div className="player-stat vanquished-stat"><span>Vanquished</span><b>{player.vanquished.length}</b></div>
       <div className={`turn-lamp ${active ? 'on' : ''}`}><span />{active ? 'Active' : 'Waiting'}</div>
     </section>
   );

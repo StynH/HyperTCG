@@ -219,9 +219,9 @@ A Unit keeps all Damage, Equipment, Conditions, and ongoing modifiers when it Ro
 
 ### Opening Hand
 
-Each player begins the game with **5 cards** in their hand.
+Each player begins the game with **7 cards** in their hand.
 
-Mulligan rules are not yet defined.
+Before the first turn begins, each player may choose up to **3 cards** from their opening hand to mulligan. Shuffle the chosen cards back into that player's deck, then draw the same number of cards. A player may keep all 7 cards by choosing no cards to mulligan.
 
 ### Battlefield Capacity
 
@@ -1037,7 +1037,6 @@ The **Hero** Subtitle is intended to remain rare.
 The following systems are still unresolved and must not be inferred:
 
 - Universal SUPER defeat penalty
-- Mulligan rules
 - Named-Unit uniqueness
 - Full turn sequence
 - Draw timing after the first-turn restriction

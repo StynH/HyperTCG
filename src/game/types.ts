@@ -52,6 +52,7 @@ export interface CardInstance {
   instanceId: string;
   cardId: string;
   owner?: PlayerId;
+  isFaceDown?: boolean;
 }
 
 export interface UnitInPlay extends CardInstance {
@@ -91,6 +92,7 @@ export interface DieRollResult {
   kind: 'effect' | 'critical' | 'defense';
   sides: number;
   value: number;
+  target?: number;
 }
 
 export interface RollResult {
@@ -98,13 +100,53 @@ export interface RollResult {
   rolls: readonly DieRollResult[];
   damage: number;
   summary: string;
+  combat?: {
+    attackName: string;
+    attacker: { instanceId: string; cardId: string; name: string };
+    defender: { instanceId?: string; cardId?: string; name: string };
+  };
+}
+
+export type GameLogKind =
+  | 'system'
+  | 'turn'
+  | 'play'
+  | 'ability'
+  | 'attack'
+  | 'roll'
+  | 'effect'
+  | 'damage'
+  | 'condition'
+  | 'movement'
+  | 'vanquish'
+  | 'reaction'
+  | 'reveal'
+  | 'victory';
+
+export interface GameLogSubject {
+  kind: 'card' | 'player' | 'rules';
+  name: string;
+  instanceId?: string;
+  cardId?: string;
+  playerId?: PlayerId;
+}
+
+export interface GameLogEntry {
+  sequence: number;
+  kind: GameLogKind;
+  message: string;
+  source?: GameLogSubject;
+  target?: GameLogSubject;
+  action?: string;
+  amount?: number;
 }
 
 export interface GameState {
   players: [PlayerState, PlayerState];
   activePlayer: PlayerId;
   round: number;
-  log: string[];
+  log: GameLogEntry[];
+  logSequence: number;
   lastRoll: RollResult | null;
   winner: PlayerId | null;
   isOpponentActing: boolean;
@@ -113,6 +155,7 @@ export interface GameState {
   usedActions: Record<string, number>;
   modifiers: RuntimeModifier[];
   pendingChoice: PendingChoice | null;
+  pendingMulligan: { player: PlayerId; maxCards: number } | null;
   pendingTurn: PlayerId | null;
   turnEvents: TurnEventRecord[];
 }

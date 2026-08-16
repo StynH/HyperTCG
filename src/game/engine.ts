@@ -1,6 +1,7 @@
 import { getCard } from '../data/catalog';
 import { getEffectScript } from '../data/effects';
 import { createDeck, DEFAULT_DECK_ID, getOpponentDeckId } from './deck';
+import { appendGameLog, cardLogSubject, playerLogSubject, rulesLogSubject } from './gameLog';
 import {
   canActivate, dispatchGameEvent, expireModifiers, hasModifier, modifierTotal, payCardCost,
   paymentForCost, resolveEffectChoice, startActivatedEffects, startAttackEffects, startEffects,
@@ -16,14 +17,16 @@ import { secureRandom } from './random';
 const emptyRow = () => Array<UnitInPlay | null>(5).fill(null);
 const otherPlayer = (player: PlayerId): PlayerId => player === 0 ? 1 : 0;
 const cloneState = (state: GameState): GameState => structuredClone(state);
+const OPENING_HAND_SIZE = 7;
+const MULLIGAN_LIMIT = 3;
 
 function createPlayer(playerId: PlayerId, name: string, seed: number, deckId: string): PlayerState {
   const deck = createDeck(seed, deckId).map((card) => ({ ...card, owner: playerId }));
   return {
     name,
     hp: 250,
-    deck: deck.slice(5),
-    hand: deck.slice(0, 5),
+    deck: deck.slice(OPENING_HAND_SIZE),
+    hand: deck.slice(0, OPENING_HAND_SIZE),
     vanguard: emptyRow(),
     backguard: emptyRow(),
     utilities: [],
@@ -55,7 +58,15 @@ export function createGame(options: GameOptions = {}): GameState {
     players,
     activePlayer: 0,
     round: 1,
-    log: ['Match initialized. Your first turn begins — no draw and no attacks.'],
+    log: [{
+      sequence: 1,
+      kind: 'system',
+      message: 'Opening hands drawn. You may mulligan up to three cards before your first turn.',
+      source: rulesLogSubject('Match setup'),
+      target: { kind: 'player', name: players[0].name, playerId: 0 },
+      action: 'Opening mulligan',
+    }],
+    logSequence: 1,
     lastRoll: null,
     winner: null,
     isOpponentActing: false,
@@ -64,14 +75,10 @@ export function createGame(options: GameOptions = {}): GameState {
     usedActions: {},
     modifiers: [],
     pendingChoice: null,
+    pendingMulligan: { player: 0, maxCards: MULLIGAN_LIMIT },
     pendingTurn: null,
     turnEvents: [],
   };
-}
-
-function withLog(state: GameState, message: string): GameState {
-  state.log = [message, ...state.log].slice(0, 24);
-  return state;
 }
 
 function removeFromHand(player: PlayerState, instanceId: string): CardInstance | null {
@@ -106,8 +113,53 @@ function payAttackCost(state: GameState, player: PlayerId, cost: readonly CostTy
 }
 
 function actionBlocked(state: GameState): string | null {
+  if (state.pendingMulligan) return 'Complete the opening mulligan first.';
   if (state.pendingChoice) return 'Resolve the pending choice first.';
   return null;
+}
+
+function shuffleCards(cards: CardInstance[], random: () => number): void {
+  for (let index = cards.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(random() * (index + 1));
+    [cards[index], cards[target]] = [cards[target], cards[index]];
+  }
+}
+
+export function mulliganOpeningHand(
+  state: GameState,
+  selectedIds: readonly string[],
+  random: () => number = secureRandom,
+): GameResult {
+  const pending = state.pendingMulligan;
+  if (!pending) return { state, error: 'The opening mulligan is already complete.' };
+  if (selectedIds.length > pending.maxCards) {
+    return { state, error: `You may mulligan up to ${pending.maxCards} cards.` };
+  }
+  const uniqueIds = new Set(selectedIds);
+  if (uniqueIds.size !== selectedIds.length) return { state, error: 'Choose each mulligan card only once.' };
+  const player = state.players[pending.player];
+  if (selectedIds.some((instanceId) => !player.hand.some((card) => card.instanceId === instanceId))) {
+    return { state, error: 'Every mulligan card must be in your opening hand.' };
+  }
+
+  const next = cloneState(state);
+  const nextPlayer = next.players[pending.player];
+  const returnedCards = nextPlayer.hand.filter((card) => uniqueIds.has(card.instanceId));
+  nextPlayer.hand = nextPlayer.hand.filter((card) => !uniqueIds.has(card.instanceId));
+  nextPlayer.deck.push(...returnedCards);
+  shuffleCards(nextPlayer.deck, random);
+  nextPlayer.hand.push(...nextPlayer.deck.splice(0, returnedCards.length));
+  next.pendingMulligan = null;
+  appendGameLog(next, {
+    kind: 'system',
+    message: returnedCards.length === 0
+      ? `${nextPlayer.name} kept all seven opening cards.`
+      : `${nextPlayer.name} mulliganed ${returnedCards.length} card${returnedCards.length === 1 ? '' : 's'} and drew the same number.`,
+    source: rulesLogSubject('Mulligan rule'),
+    target: playerLogSubject(next, pending.player),
+    action: returnedCards.length === 0 ? 'Opening hand kept' : 'Opening hand redrawn',
+  });
+  return { state: next };
 }
 
 export function playEnergy(state: GameState, playerId: PlayerId, instanceId: string): GameResult {
@@ -125,7 +177,13 @@ export function playEnergy(state: GameState, playerId: PlayerId, instanceId: str
   player.energies.push({ ...removed, owner: removed.owner ?? playerId, energyType: definition.energyType!, isTapped: false });
   player.energyPlaysThisTurn += 1;
   player.hasPlayedEnergy = player.energyPlaysThisTurn > 0;
-  return { state: withLog(next, player.name + ' played ' + definition.name + '.') };
+  return { state: appendGameLog(next, {
+    kind: 'play',
+    message: player.name + ' played ' + definition.name + '.',
+    source: cardLogSubject(removed, playerId),
+    target: playerLogSubject(next, playerId),
+    action: 'Played Energy',
+  }) };
 }
 
 export function playUnit(state: GameState, address: BoardAddress, instanceId: string): GameResult {
@@ -155,7 +213,13 @@ export function playUnit(state: GameState, address: BoardAddress, instanceId: st
     enteredTurn: player.turnCount,
     conditions: [],
   };
-  withLog(next, player.name + ' played ' + card.name + ' to the ' + address.row + '.');
+  appendGameLog(next, {
+    kind: 'play',
+    message: player.name + ' played ' + card.name + ' to the ' + address.row + '.',
+    source: cardLogSubject(removed, address.player),
+    target: playerLogSubject(next, address.player),
+    action: 'Entered ' + (address.row === 'vanguard' ? 'Vanguard' : 'Backguard'),
+  });
   dispatchGameEvent(next, { name: 'played', sourceId: removed.instanceId, targetId: removed.instanceId, controller: address.player });
   return { state: next };
 }
@@ -176,7 +240,13 @@ export function playUtility(state: GameState, playerId: PlayerId, instanceId: st
   const removed = removeFromHand(next.players[playerId], instanceId)!;
   if (card.utilityType === 'continuous' || card.utilityType === 'equipment') next.players[playerId].utilities.push(removed);
   else next.players[playerId].vanquished.push(removed);
-  withLog(next, next.players[playerId].name + ' played ' + card.name + '.');
+  appendGameLog(next, {
+    kind: 'play',
+    message: next.players[playerId].name + ' played ' + card.name + '.',
+    source: cardLogSubject(removed, playerId),
+    target: playerLogSubject(next, playerId),
+    action: card.utilityType === 'equipment' ? 'Played Equipment' : 'Played Utility',
+  });
   startUtilityScript(next, playerId, instanceId);
   return { state: next };
 }
@@ -198,7 +268,13 @@ export function rotateUnit(state: GameState, address: BoardAddress): GameResult 
   player[address.row][address.index] = null;
   unit.isReady = false;
   player[destination][openIndex] = unit;
-  withLog(next, getCard(unit.cardId).name + ' Rotated to the ' + destination + ' and became Exhausted.');
+  appendGameLog(next, {
+    kind: 'movement',
+    message: getCard(unit.cardId).name + ' Rotated to the ' + destination + ' and became Exhausted.',
+    source: cardLogSubject(unit, address.player),
+    target: cardLogSubject(unit, address.player),
+    action: 'Rotate → ' + (destination === 'vanguard' ? 'Vanguard' : 'Backguard'),
+  });
   dispatchGameEvent(next, { name: 'unit-rotated', sourceId: unit.instanceId, targetId: unit.instanceId, controller: address.player });
   return { state: next };
 }
@@ -269,7 +345,16 @@ export function useAttack(
   const nextAttacker = next.players[source.player][source.row][source.index]!;
   nextAttacker.isReady = false;
   const targetId = target ? next.players[target.player][target.row][target.index]?.instanceId ?? null : null;
-  withLog(next, getCard(nextAttacker.cardId).name + ' used ' + attack.name + '.');
+  const attackTarget = targetId
+    ? cardLogSubject(next.players[target!.player][target!.row][target!.index]!, target!.player)
+    : playerLogSubject(next, defenderId);
+  appendGameLog(next, {
+    kind: 'attack',
+    message: getCard(nextAttacker.cardId).name + ' used ' + attack.name + '.',
+    source: cardLogSubject(nextAttacker, source.player),
+    target: attackTarget,
+    action: attack.name,
+  });
   startAttackEffects(next, source.player, nextAttacker.instanceId, targetId, defenderId, attack, script, random);
   return { state: next };
 }
@@ -292,6 +377,16 @@ export function activateAbility(state: GameState, player: PlayerId, sourceInstan
   if (blocked) return { state, error: blocked };
   if (state.activePlayer !== player || state.winner !== null) return { state, error: 'It is not your turn.' };
   const next = cloneState(state);
+  const source = [...next.players[player].vanguard, ...next.players[player].backguard, ...next.players[player].utilities]
+    .find((card) => card?.instanceId === sourceInstanceId);
+  const ability = source ? getEffectScript(source.cardId).activated?.find(({ id }) => id === abilityId) : undefined;
+  if (source && ability && canActivate(next, player, sourceInstanceId, abilityId)) appendGameLog(next, {
+    kind: 'ability',
+    message: getCard(source.cardId).name + ' activated ' + ability.name + '.',
+    source: cardLogSubject(source, player),
+    target: cardLogSubject(source, player),
+    action: ability.name,
+  });
   return startActivatedEffects(next, player, sourceInstanceId, abilityId);
 }
 
@@ -322,7 +417,13 @@ function drawTurnCard(state: GameState, playerId: PlayerId) {
   const card = state.players[playerId].deck.shift();
   if (!card) {
     state.winner = otherPlayer(playerId);
-    withLog(state, state.players[playerId].name + ' decked out.');
+    appendGameLog(state, {
+      kind: 'victory',
+      message: state.players[playerId].name + ' decked out.',
+      source: rulesLogSubject('Deck-out rule'),
+      target: playerLogSubject(state, playerId),
+      action: 'Deck depleted',
+    });
   } else {
     state.players[playerId].hand.push(card);
   }
@@ -385,9 +486,15 @@ function completePendingTurn(state: GameState, random: () => number) {
   if (player === 0) state.round += 1;
   beginTurn(state, player, random);
   state.isOpponentActing = player === 1;
-  withLog(state, player === 0
-    ? 'Round ' + state.round + '. Your Energy and Units are Ready.'
-    : 'Opponent turn. The Rift Automaton is evaluating the board…');
+  appendGameLog(state, {
+    kind: 'turn',
+    message: player === 0
+      ? 'Round ' + state.round + '. Your Energy and Units are Ready.'
+      : 'Opponent turn. The Rift Automaton is evaluating the board…',
+    source: rulesLogSubject('Turn sequence'),
+    target: playerLogSubject(state, player),
+    action: player === 0 ? 'Your turn' : 'Opponent turn',
+  });
 }
 
 function affordable(player: PlayerState, kind: 'unit' | 'utility') {
@@ -398,7 +505,7 @@ function affordable(player: PlayerState, kind: 'unit' | 'utility') {
 }
 
 export function runOpponentTurn(state: GameState, random: () => number = secureRandom): GameState {
-  if (state.pendingChoice || state.winner !== null || state.activePlayer !== 1) return state;
+  if (state.pendingMulligan || state.pendingChoice || state.winner !== null || state.activePlayer !== 1) return state;
   let next = cloneState(state);
   const opponent = next.players[1];
   const energy = opponent.hand.find((held) => getCard(held.cardId).kind === 'energy');

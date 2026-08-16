@@ -1,13 +1,16 @@
 /* oxlint-disable unicorn/no-thenable -- `then` is an intentional JSON DSL branch, not a Promise contract. */
 import { getCard } from '../data/catalog';
 import { getEffectScript } from '../data/effects';
+import {
+  appendGameLog, cardLogSubject, findLogSubject, playerLogSubject, rulesLogSubject,
+} from './gameLog';
 import type {
   CardSelector, ConditionExpression, ControllerRef, EffectOperation, GameEventName,
   ModifierDuration, ModifierKind, ResolvedCardLocation, ValueExpression,
 } from './effectTypes';
 import type {
   AttackDefinition, CardInstance, ChoiceOption, DieRollResult, GameState, PlayerId,
-  RuntimeModifier, UnitInPlay,
+  RollResult, RuntimeModifier, UnitInPlay,
 } from './types';
 import { randomInteger, rollDie, secureRandom } from './random';
 
@@ -28,6 +31,7 @@ export interface AttackRuntime {
   defendingPlayer: PlayerId;
   attackId: string;
   attackName: string;
+  combat: NonNullable<RollResult['combat']>;
   effectDieSides: number;
   dr: number;
   surplus: number;
@@ -35,6 +39,7 @@ export interface AttackRuntime {
   damage: number;
   criticalRoll: number;
   defenseRoll?: number;
+  defenseTarget?: number;
   isCritical: boolean;
   isFailed: boolean;
   shouldExhaust: boolean;
@@ -64,7 +69,7 @@ type InternalOperation =
   | { internal: 'finish-attack' }
   | { internal: 'tap-surplus'; ref: string }
   | { internal: 'tap-energy'; ref: string; store?: 'x-cost' }
-  | { internal: 'finalize-vanquish'; targetId: string; causeId?: string; damageType?: EffectEvent['damageType']; critical?: boolean };
+  | { internal: 'finalize-vanquish'; targetId: string; causeId?: string; damageType?: EffectEvent['damageType']; critical?: boolean; faceDown?: boolean };
 
 type RuntimeOperation = EffectOperation | InternalOperation;
 
@@ -200,6 +205,7 @@ function matchesSelectorBase(
   const instance = cardAt(state, location);
   if (!instance) return false;
   if (!asZones(selector.zone).includes(location.zone)) return false;
+  if (location.zone === 'vanquished' && instance.isFaceDown) return false;
   const controller = controllerFor(selector.controller, context);
   if (controller !== null && location.player !== controller) return false;
   if (selector.ref && !idsFromRef(context, selector.ref).includes(instance.instanceId)) return false;
@@ -441,16 +447,27 @@ function evaluateCondition(state: GameState, condition: ConditionExpression, con
   return open >= (condition.hasOpenSlot.atLeast ?? 1);
 }
 
-function withLog(state: GameState, message: string) {
-  state.log = [message, ...state.log].slice(0, 24);
+function effectSource(state: GameState, context: ExecutionContext) {
+  return findLogSubject(state, context.sourceId) ?? rulesLogSubject();
 }
 
-function recordRoll(state: GameState, rolls: readonly DieRollResult[], damage: number, summary: string) {
+function attackRollContext(attack: AttackRuntime): NonNullable<import('./types').RollResult['combat']> {
+  return attack.combat;
+}
+
+function recordRoll(
+  state: GameState,
+  rolls: readonly DieRollResult[],
+  damage: number,
+  summary: string,
+  combat?: NonNullable<import('./types').RollResult['combat']>,
+) {
   state.lastRoll = {
     sequence: ++state.rollSequence,
     rolls,
     damage,
     summary,
+    combat,
   };
 }
 
@@ -460,7 +477,9 @@ function resolvedAttackRolls(attack: AttackRuntime): DieRollResult[] {
     rolls.push({ kind: 'effect', sides: attack.effectDieSides, value: attack.dr });
   }
   if (attack.criticalRoll > 0) rolls.push({ kind: 'critical', sides: 20, value: attack.criticalRoll });
-  if (attack.defenseRoll !== undefined) rolls.push({ kind: 'defense', sides: 100, value: attack.defenseRoll });
+  if (attack.defenseRoll !== undefined) {
+    rolls.push({ kind: 'defense', sides: 100, value: attack.defenseRoll, target: attack.defenseTarget });
+  }
   return rolls;
 }
 
@@ -529,7 +548,12 @@ function controllerRef(value: string): value is ControllerRef {
 }
 
 function targetIds(state: GameState, target: string | CardSelector, context: ExecutionContext): string[] {
-  return typeof target === 'string' ? idsFromRef(context, target) : selectCards(state, target, context);
+  const ids = typeof target === 'string' ? idsFromRef(context, target) : selectCards(state, target, context);
+  return ids.filter((id) => {
+    const location = locateCard(state, id);
+    const instance = location ? cardAt(state, location) : null;
+    return location?.zone !== 'vanquished' || !instance?.isFaceDown;
+  });
 }
 
 function effectiveCost(
@@ -601,7 +625,7 @@ function moveCards(
   operation: Extract<EffectOperation, { op: 'move' }>,
   context: ExecutionContext,
 ) {
-  const ids = typeof operation.cards === 'string' ? idsFromRef(context, operation.cards) : selectCards(state, operation.cards, context);
+  const ids = targetIds(state, operation.cards, context);
   const slots = operation.slots ? idsFromRef(context, operation.slots) : [];
   const removed = ids.flatMap((id) => {
     const location = locateCard(state, id);
@@ -658,7 +682,14 @@ function moveCards(
   }
   const destination = controllerFor(operation.controller, context) ?? context.actor;
   removed.forEach(({ card, owner }) => {
-    if (operation.to === 'vanquished') state.players[destination].vanquished.push({ instanceId: card.instanceId, cardId: card.cardId, owner });
+    if (operation.to === 'vanquished') {
+      state.players[destination].vanquished.push({
+        instanceId: card.instanceId,
+        cardId: card.cardId,
+        owner,
+        isFaceDown: operation.faceDown || undefined,
+      });
+    }
     if (operation.to === 'utilities') state.players[destination].utilities.push({ instanceId: card.instanceId, cardId: card.cardId, owner });
     if (operation.to === 'energies') {
       const definition = getCard(card.cardId);
@@ -684,7 +715,13 @@ function enforceVanguard(state: GameState, playerId: PlayerId) {
   const unit = player.backguard[back]!;
   player.backguard[back] = null;
   player.vanguard[front] = unit;
-  withLog(state, getCard(unit.cardId).name + ' moved forward to fill the empty Vanguard.');
+  appendGameLog(state, {
+    kind: 'movement',
+    message: getCard(unit.cardId).name + ' moved forward to fill the empty Vanguard.',
+    source: cardLogSubject(unit, playerId),
+    target: cardLogSubject(unit, playerId),
+    action: 'Advance → Vanguard',
+  });
 }
 
 function queueVanquish(
@@ -694,6 +731,7 @@ function queueVanquish(
   targetId: string,
   damageType?: EffectEvent['damageType'],
   critical = false,
+  faceDown = false,
 ) {
   const event: EffectEvent = {
     name: 'would-vanquish',
@@ -707,7 +745,7 @@ function queueVanquish(
     continuation,
     [
       { internal: 'dispatch', event },
-      { internal: 'finalize-vanquish', targetId, causeId: context.sourceId, damageType, critical },
+      { internal: 'finalize-vanquish', targetId, causeId: context.sourceId, damageType, critical, faceDown },
     ],
     context,
   );
@@ -728,6 +766,12 @@ function finalizeVanquish(
   if (!location) return;
   const instance = cardAt(state, location)!;
   const definition = getCard(instance.cardId);
+  const targetSubject = operation.faceDown
+    ? rulesLogSubject('Face-down card')
+    : cardLogSubject(instance, location.player);
+  const sourceSubject = operation.faceDown && operation.causeId === operation.targetId
+    ? rulesLogSubject()
+    : findLogSubject(state, operation.causeId) ?? rulesLogSubject();
   const attachedUnitId = location.zone === 'utilities' ? state.players[location.player].utilities[location.index].attachedTo : undefined;
   const previouslyAttachedUnit = attachedUnitId ? findUnit(state, attachedUnitId) : null;
   const previousMaximum = previouslyAttachedUnit
@@ -755,8 +799,19 @@ function finalizeVanquish(
     }
   }
   const owner = instance.owner ?? location.player;
-  state.players[owner].vanquished.push({ instanceId: instance.instanceId, cardId: instance.cardId, owner });
-  withLog(state, definition.name + ' was Vanquished.');
+  state.players[owner].vanquished.push({
+    instanceId: instance.instanceId,
+    cardId: instance.cardId,
+    owner,
+    isFaceDown: operation.faceDown || undefined,
+  });
+  appendGameLog(state, {
+    kind: 'vanquish',
+    message: operation.faceDown ? 'A card was Vanquished face down.' : definition.name + ' was Vanquished.',
+    source: sourceSubject,
+    target: targetSubject,
+    action: operation.damageType === 'attack' ? 'Attack Vanquish' : 'Vanquished',
+  });
   if (definition.kind === 'unit') enforceVanguard(state, location.player);
   if (definition.kind !== 'unit') return;
   const event: EffectEvent = {
@@ -781,8 +836,17 @@ function applyDamage(
   for (const id of ids) {
     const unit = findUnit(state, id);
     if (!unit) continue;
+    const location = locateCard(state, id);
     unit.currentHp -= Math.max(0, amount);
-    withLog(state, getCard(unit.cardId).name + ' took ' + Math.max(0, amount) + (damageType === 'attack' ? ' Attack Damage.' : ' Effect Damage.'));
+    appendGameLog(state, {
+      kind: 'damage',
+      message: getCard(unit.cardId).name + ' took ' + Math.max(0, amount)
+        + (damageType === 'attack' ? ' Attack Damage.' : damageType === 'condition' ? ' Condition Damage.' : ' Effect Damage.'),
+      source: effectSource(state, context),
+      target: cardLogSubject(unit, location?.player),
+      action: damageType === 'attack' ? 'Attack Damage' : damageType === 'condition' ? 'Condition Damage' : 'Effect Damage',
+      amount: Math.max(0, amount),
+    });
     if (unit.currentHp <= 0) {
       queueVanquish(
         state,
@@ -811,7 +875,13 @@ function applyCondition(
   const tranquil = unit.conditions.findIndex((condition) => condition.name === 'tranquil');
   if (name !== 'tranquil' && tranquil >= 0) {
     unit.conditions.splice(tranquil, 1);
-    withLog(state, getCard(unit.cardId).name + "'s Tranquil prevented " + name + '.');
+    appendGameLog(state, {
+      kind: 'condition',
+      message: getCard(unit.cardId).name + "'s Tranquil prevented " + name + '.',
+      source: cardLogSubject(unit, location.player),
+      target: cardLogSubject(unit, location.player),
+      action: 'Tranquil prevented ' + name,
+    });
     return;
   }
   const existing = unit.conditions.find((condition) => condition.name === name);
@@ -823,7 +893,14 @@ function applyCondition(
   } else {
     unit.conditions.push({ name, amount, appliedTurn: state.players[location.player].turnCount, controllerTurns });
   }
-  withLog(state, getCard(unit.cardId).name + ' became ' + name + '.');
+  appendGameLog(state, {
+    kind: 'condition',
+    message: getCard(unit.cardId).name + ' became ' + name + (amount === undefined ? '.' : ' ' + amount + '.'),
+    source: effectSource(state, context),
+    target: cardLogSubject(unit, location.player),
+    action: name + (amount === undefined ? '' : ' ' + amount),
+    amount,
+  });
 }
 
 function rotateUnit(state: GameState, id: string, exhaust: boolean, context: ExecutionContext) {
@@ -840,6 +917,13 @@ function rotateUnit(state: GameState, id: string, exhaust: boolean, context: Exe
   state.players[location.player][location.zone][location.index] = null;
   if (exhaust) unit.isReady = false;
   state.players[location.player][destination][open] = unit;
+  appendGameLog(state, {
+    kind: 'movement',
+    message: getCard(unit.cardId).name + ' Rotated to the ' + destination + (exhaust ? ' and became Exhausted.' : '.'),
+    source: effectSource(state, context),
+    target: cardLogSubject(unit, location.player),
+    action: 'Rotate → ' + (destination === 'vanguard' ? 'Vanguard' : 'Backguard'),
+  });
   const event: EffectEvent = { name: 'unit-rotated', sourceId: context.sourceId, targetId: id, controller: location.player };
   pushFrame(context.continuation, [{ internal: 'dispatch', event }], context);
 }
@@ -950,7 +1034,13 @@ function playReaction(
   state.players[player].vanquished.push(instance);
   const script = getEffectScript(instance.cardId);
   pushFrame(continuation, script.utility?.effects ?? [], { actor: player, sourceId: instanceId, event });
-  withLog(state, state.players[player].name + ' played ' + getCard(instance.cardId).name + ' as a reaction.');
+  appendGameLog(state, {
+    kind: 'reaction',
+    message: state.players[player].name + ' played ' + getCard(instance.cardId).name + ' as a reaction.',
+    source: cardLogSubject(instance, player),
+    target: findLogSubject(state, event?.targetId) ?? playerLogSubject(state, event?.controller ?? player),
+    action: 'Free Effect reaction',
+  });
 }
 
 function offerEffectDieActions(state: GameState, continuation: EffectContinuation) {
@@ -1065,15 +1155,31 @@ function executeOperation(
     case 'draw': {
       const player = controllerFor(operation.player, context) ?? context.actor;
       const count = evaluateValue(state, operation.count, context);
+      let drawn = 0;
       for (let index = 0; index < count; index += 1) {
         const card = state.players[player].deck.shift();
         if (!card) {
           state.winner = otherPlayer(player);
-          withLog(state, state.players[player].name + ' decked out.');
+          appendGameLog(state, {
+            kind: 'victory',
+            message: state.players[player].name + ' decked out.',
+            source: effectSource(state, context),
+            target: playerLogSubject(state, player),
+            action: 'Deck depleted',
+          });
           break;
         }
         state.players[player].hand.push(card);
+        drawn += 1;
       }
+      if (drawn > 0) appendGameLog(state, {
+        kind: 'effect',
+        message: state.players[player].name + ' drew ' + drawn + ' card' + (drawn === 1 ? '.' : 's.'),
+        source: effectSource(state, context),
+        target: playerLogSubject(state, player),
+        action: 'Draw ' + drawn,
+        amount: drawn,
+      });
       return;
     }
     case 'damage':
@@ -1090,8 +1196,19 @@ function executeOperation(
       for (const id of targetIds(state, operation.target, context)) {
         const unit = findUnit(state, id);
         if (!unit) continue;
+        const location = locateCard(state, id);
         const maximum = getCard(unit.cardId).hp + modifierTotal(state, id, null, 'max-hp', continuation);
+        const previousHp = unit.currentHp;
         unit.currentHp = Math.min(maximum, unit.currentHp + evaluateValue(state, operation.amount, context));
+        const restored = unit.currentHp - previousHp;
+        appendGameLog(state, {
+          kind: 'effect',
+          message: getCard(unit.cardId).name + ' recovered ' + restored + ' HP.',
+          source: effectSource(state, context),
+          target: cardLogSubject(unit, location?.player),
+          action: 'Heal ' + restored + ' HP',
+          amount: restored,
+        });
       }
       return;
     case 'ready':
@@ -1103,7 +1220,16 @@ function executeOperation(
           return;
         }
         const unit = findUnit(state, id);
-        if (unit) unit.isReady = true;
+        if (unit) {
+          unit.isReady = true;
+          appendGameLog(state, {
+            kind: 'effect',
+            message: getCard(unit.cardId).name + ' became Ready.',
+            source: effectSource(state, context),
+            target: cardLogSubject(unit, location?.player),
+            action: 'Ready',
+          });
+        }
       });
       return;
     case 'exhaust':
@@ -1114,14 +1240,24 @@ function executeOperation(
           return;
         }
         const unit = findUnit(state, id);
-        if (unit) unit.isReady = false;
+        if (unit) {
+          unit.isReady = false;
+          appendGameLog(state, {
+            kind: 'effect',
+            message: getCard(unit.cardId).name + ' became Exhausted.',
+            source: effectSource(state, context),
+            target: cardLogSubject(unit, location?.player),
+            action: 'Exhaust',
+          });
+        }
       });
       return;
     case 'rotate':
       targetIds(state, operation.target, context).forEach((id) => rotateUnit(state, id, operation.exhaust !== false, context));
       return;
     case 'vanquish':
-      targetIds(state, operation.target, context).forEach((id) => queueVanquish(state, continuation, context, id));
+      targetIds(state, operation.target, context).forEach((id) =>
+        queueVanquish(state, continuation, context, id, undefined, false, operation.faceDown));
       return;
     case 'condition':
       targetIds(state, operation.target, context).forEach((id) =>
@@ -1131,9 +1267,20 @@ function executeOperation(
       targetIds(state, operation.target, context).forEach((id) => {
         const unit = findUnit(state, id);
         if (!unit) return;
+        const location = locateCard(state, id);
+        const removed = operation.conditions
+          ? unit.conditions.filter(({ name }) => operation.conditions!.includes(name)).map(({ name }) => name)
+          : unit.conditions.map(({ name }) => name);
         unit.conditions = operation.conditions
           ? unit.conditions.filter(({ name }) => !operation.conditions!.includes(name))
           : [];
+        if (removed.length) appendGameLog(state, {
+          kind: 'condition',
+          message: getCard(unit.cardId).name + ' lost ' + removed.join(', ') + '.',
+          source: effectSource(state, context),
+          target: cardLogSubject(unit, location?.player),
+          action: 'Removed ' + removed.join(', '),
+        });
       });
       return;
     case 'modifier':
@@ -1164,7 +1311,13 @@ function executeOperation(
         continuation.attack.dr = result;
         continuation.attack.effectDieSides = sides;
       }
-      recordRoll(state, [{ kind: 'effect', sides, value: result }], 0, 'Effect die resolved: ' + result + ' on d' + sides + '.');
+      recordRoll(
+        state,
+        [{ kind: 'effect', sides, value: result }],
+        0,
+        'Effect die resolved: ' + result + ' on d' + sides + '.',
+        continuation.attack ? attackRollContext(continuation.attack) : undefined,
+      );
       return;
     }
     case 'set-attack': {
@@ -1194,10 +1347,19 @@ function executeOperation(
       if (location?.zone === 'utilities' && unitId) {
         const unit = findUnit(state, unitId);
         if (!unit) return;
+        const unitLocation = locateCard(state, unitId);
+        const equipment = state.players[location.player].utilities[location.index];
         const before = getCard(unit.cardId).hp + modifierTotal(state, unitId, null, 'max-hp', continuation);
-        state.players[location.player].utilities[location.index].attachedTo = unitId;
+        equipment.attachedTo = unitId;
         const after = getCard(unit.cardId).hp + modifierTotal(state, unitId, null, 'max-hp', continuation);
         unit.currentHp += Math.max(0, after - before);
+        appendGameLog(state, {
+          kind: 'effect',
+          message: getCard(equipment.cardId).name + ' attached to ' + getCard(unit.cardId).name + '.',
+          source: cardLogSubject(equipment, location.player),
+          target: cardLogSubject(unit, unitLocation?.player),
+          action: 'Attached Equipment',
+        });
       }
       return;
     }
@@ -1206,7 +1368,13 @@ function executeOperation(
         const location = locateCard(state, id)!;
         return getCard(cardAt(state, location)!.cardId).name;
       });
-      withLog(state, cards.length ? 'Revealed: ' + cards.join(', ') + '.' : 'No cards were revealed.');
+      appendGameLog(state, {
+        kind: 'reveal',
+        message: cards.length ? 'Revealed: ' + cards.join(', ') + '.' : 'No cards were revealed.',
+        source: effectSource(state, context),
+        target: playerLogSubject(state, context.actor),
+        action: 'Reveal' + (cards.length ? ' · ' + cards.length + ' card' + (cards.length === 1 ? '' : 's') : ''),
+      });
       return;
     }
     case 'shuffle': {
@@ -1217,11 +1385,23 @@ function executeOperation(
     case 'win': {
       const player = controllerFor(operation.player, context) ?? context.actor;
       state.winner = player;
-      withLog(state, state.players[player].name + ' won by a card effect.');
+      appendGameLog(state, {
+        kind: 'victory',
+        message: state.players[player].name + ' won by a card effect.',
+        source: effectSource(state, context),
+        target: playerLogSubject(state, player),
+        action: 'Won the match',
+      });
       return;
     }
     case 'log':
-      withLog(state, operation.message);
+      appendGameLog(state, {
+        kind: 'system',
+        message: operation.message,
+        source: effectSource(state, context),
+        target: findLogSubject(state, context.event?.targetId),
+        action: 'Card effect',
+      });
       return;
   }
 }
@@ -1262,12 +1442,22 @@ function executeInternal(
       if (!attack || operation.sides <= 0) return;
       attack.dr = rollDie(operation.sides, random);
       continuation.vars.dr = attack.dr;
-      withLog(state, attack.attackName + ' rolled ' + attack.dr + ' on d' + operation.sides + '.');
+      appendGameLog(state, {
+        kind: 'roll',
+        message: attack.attackName + ' rolled ' + attack.dr + ' on d' + operation.sides + '.',
+        source: findLogSubject(state, attack.attackerId) ?? effectSource(state, context),
+        target: attack.defenderId
+          ? findLogSubject(state, attack.defenderId)
+          : playerLogSubject(state, attack.defendingPlayer),
+        action: attack.attackName + ' · d' + operation.sides + ' → ' + attack.dr,
+        amount: attack.dr,
+      });
       recordRoll(
         state,
         [{ kind: 'effect', sides: operation.sides, value: attack.dr }],
         0,
         attack.attackName + ' effect die: ' + attack.dr + '.',
+        attackRollContext(attack),
       );
       return;
     case 'offer-die-actions':
@@ -1297,7 +1487,16 @@ function executeInternal(
       attack.criticalRoll = rollDie(20, random);
       if (attack.criticalRoll === 1) {
         attack.isFailed = true;
-        withLog(state, attack.attackName + ' failed on a natural 1.');
+        appendGameLog(state, {
+          kind: 'roll',
+          message: attack.attackName + ' failed on a natural 1.',
+          source: findLogSubject(state, attack.attackerId) ?? effectSource(state, context),
+          target: attack.defenderId
+            ? findLogSubject(state, attack.defenderId)
+            : playerLogSubject(state, attack.defendingPlayer),
+          action: attack.attackName + ' · Natural 1',
+          amount: 1,
+        });
         return;
       }
       const attacker = findUnit(state, attack.attackerId);
@@ -1307,7 +1506,7 @@ function executeInternal(
     case 'resolve-attack-damage': {
       if (!attack || attack.damage <= 0) return;
       if (attack.isFailed) {
-        recordRoll(state, resolvedAttackRolls(attack), 0, 'Attack failed — 0 Damage.');
+        recordRoll(state, resolvedAttackRolls(attack), 0, 'Attack failed — 0 Damage.', attackRollContext(attack));
         return;
       }
       let damage = attack.damage + modifierTotal(state, attack.attackerId, null, 'attack-damage', continuation);
@@ -1323,13 +1522,22 @@ function executeInternal(
           resolvedAttackRolls(attack),
           damage,
           attack.isCritical ? 'Critical direct hit!' : 'Direct hit.',
+          attackRollContext(attack),
         );
-        withLog(state, attack.attackName + ' dealt ' + damage + ' direct Damage.');
+        appendGameLog(state, {
+          kind: 'damage',
+          message: attack.attackName + ' dealt ' + damage + ' direct Damage.',
+          source: findLogSubject(state, attack.attackerId) ?? effectSource(state, context),
+          target: playerLogSubject(state, attack.defendingPlayer),
+          action: attack.attackName + ' · Direct Damage',
+          amount: damage,
+        });
         return;
       }
       const unit = findUnit(state, attack.defenderId);
       if (!unit) return;
       const defense = getCard(unit.cardId).defense + modifierTotal(state, attack.defenderId, null, 'defense', continuation);
+      attack.defenseTarget = defense;
       let defenseLabel = 'failed Defense';
       if (!attack.ignoresDefense) {
         attack.defenseRoll = rollDie(100, random);
@@ -1346,7 +1554,13 @@ function executeInternal(
       } else {
         defenseLabel = 'Defense ignored';
       }
-      recordRoll(state, resolvedAttackRolls(attack), damage, defenseLabel + ' — ' + damage + ' Damage.');
+      recordRoll(
+        state,
+        resolvedAttackRolls(attack),
+        damage,
+        defenseLabel + ' — ' + damage + ' Damage.',
+        attackRollContext(attack),
+      );
       applyDamage(state, continuation, [attack.defenderId], damage, context, 'attack');
       return;
     }
@@ -1444,6 +1658,9 @@ export function startAttackEffects(
   attackScript: import('./effectTypes').AttackScript,
   random: () => number = secureRandom,
 ): GameState {
+  const attacker = findUnit(state, sourceInstanceId);
+  const defender = targetInstanceId ? findUnit(state, targetInstanceId) : null;
+  if (!attacker) return state;
   const damageMatch = attack.damage.match(/^\d+/);
   const runtime: AttackRuntime = {
     sequence: ++state.actionSequence,
@@ -1452,6 +1669,13 @@ export function startAttackEffects(
     defendingPlayer,
     attackId: attack.id,
     attackName: attack.name,
+    combat: {
+      attackName: attack.name,
+      attacker: { instanceId: attacker.instanceId, cardId: attacker.cardId, name: getCard(attacker.cardId).name },
+      defender: defender
+        ? { instanceId: defender.instanceId, cardId: defender.cardId, name: getCard(defender.cardId).name }
+        : { name: state.players[defendingPlayer].name },
+    },
     effectDieSides: attack.dice[0]?.die ?? 0,
     dr: 0,
     surplus: 0,
