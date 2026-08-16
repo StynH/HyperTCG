@@ -14,6 +14,9 @@ interface CardTileProps {
 
 export function CardTile({ instance, currentHp, isReady = true, isSelected, isTarget, compact, onHover, onClick }: CardTileProps) {
   const card = getCard(instance.cardId);
+  const maxHp = card.kind === 'unit' ? card.hp : undefined;
+  const shownHp = currentHp === undefined ? undefined : Math.max(0, currentHp);
+  const isDamaged = shownHp !== undefined && maxHp !== undefined && shownHp < maxHp;
   return (
     <button
       className={`card-tile ${compact ? 'compact' : ''} ${!isReady ? 'exhausted' : ''} ${isSelected ? 'selected' : ''} ${isTarget ? 'targetable' : ''}`}
@@ -24,8 +27,12 @@ export function CardTile({ instance, currentHp, isReady = true, isSelected, isTa
       type="button"
     >
       <img src={card.image} alt={card.name} draggable="false" />
-      {currentHp !== undefined && (
-        <span className="hp-chip"><small>HP</small>{Math.max(0, currentHp)}</span>
+      {shownHp !== undefined && (
+        <span className={`hp-chip ${isDamaged ? 'damaged' : ''}`}>
+          <small>HP</small>
+          <b>{shownHp}</b>
+          {isDamaged && <em>/{maxHp}</em>}
+        </span>
       )}
       {!isReady && <span className="status-chip">Exhausted</span>}
       {'conditions' in instance && instance.conditions.length > 0 && (

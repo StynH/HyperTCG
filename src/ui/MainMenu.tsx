@@ -74,7 +74,7 @@ export function MainMenu({ selectedDeckId, onSelectDeck, onStart }: MainMenuProp
           <div>
             <span className="menu-kicker">SOLO BREACH // LOADOUT SELECT</span>
             <h1 id="menu-title">Choose your<br /><em>timeline.</em></h1>
-            <p>Ten tuned decks. Ten ways to bend the Hyperverse. Select a formation and breach the Rift.</p>
+            <p>{DECK_PRESETS.length} tuned decks. {DECK_PRESETS.length} ways to bend the Hyperverse. Select a formation and breach the Rift.</p>
           </div>
           <div className="mode-card glass">
             <span className="mode-reticle" aria-hidden="true"><i /></span>
@@ -84,7 +84,7 @@ export function MainMenu({ selectedDeckId, onSelectDeck, onStart }: MainMenuProp
         </section>
 
         <section className="deck-archive glass" aria-labelledby="archive-title">
-          <header><div><span>LOADOUT ARCHIVE</span><h2 id="archive-title">Battle decks</h2></div><b>{DECK_PRESETS.length}<small> / 10 READY</small></b></header>
+          <header><div><span>LOADOUT ARCHIVE</span><h2 id="archive-title">Battle decks</h2></div><b>{DECK_PRESETS.length}<small> / {DECK_PRESETS.length} READY</small></b></header>
           <div className="deck-tabs" role="tablist" aria-label="Battle decks" aria-orientation="vertical">
             {DECK_PRESETS.map((deck, index) => {
               const isSelected = deck.id === selectedDeckId;

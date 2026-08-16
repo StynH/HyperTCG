@@ -3,11 +3,9 @@ import { getCard } from '../data/catalog';
 import { rollDie } from '../game/random';
 import type { DieRollResult, RollResult } from '../game/types';
 
-type CastPhase = 'casting' | 'revealed';
-
 interface VisibleCast {
-  phase: CastPhase;
   roll: RollResult;
+  revealedCount: number;
   values: number[];
 }
 
@@ -70,7 +68,7 @@ function RollCheck({ die, value, delay, index, isRevealed }: {
 }) {
   const outcome = rollOutcome(die, value, isRevealed);
   return (
-    <article role="listitem" className={`roll-check roll-${die.kind} tone-${outcome.tone}`} style={{ '--die-delay': `${delay}ms` } as React.CSSProperties}>
+    <article role="listitem" className={`roll-check roll-${die.kind} tone-${outcome.tone} ${isRevealed ? 'is-locked' : 'is-casting'}`} style={{ '--die-delay': `${delay}ms` } as React.CSSProperties}>
       <header>
         <span className="roll-check-number">0{index + 1}</span>
         <div><small>CHECK</small><strong>{DIE_LABELS[die.kind]}</strong></div>
@@ -128,30 +126,55 @@ export function DiceCast({ roll }: { roll: RollResult | null }) {
     previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const castingDuration = prefersReducedMotion ? 0 : 620;
-    const preview = () => setVisible({
-      phase: 'casting',
-      roll,
-      values: roll.rolls.map(({ sides }) => rollDie(sides)),
+    const dieCount = roll.rolls.length;
+    // Locked dice keep their real value; pending dice show a fresh shuffle face.
+    const faces = (revealedCount: number, shuffle: boolean) =>
+      roll.rolls.map((die, i) => (i < revealedCount || !shuffle ? die.value : rollDie(die.sides)));
+
+    if (prefersReducedMotion) {
+      setVisible({ roll, revealedCount: dieCount, values: faces(dieCount, false) });
+      return;
+    }
+
+    setVisible({ roll, revealedCount: 0, values: faces(0, true) });
+    const shuffleTimer = window.setInterval(() => {
+      setVisible((current) => (current && current.roll === roll
+        ? { ...current, values: faces(current.revealedCount, true) }
+        : current));
+    }, 82);
+
+    // Reveal dice left-to-right, with an extra beat of suspense before a defense roll.
+    const openingBeat = 620;
+    const betweenDice = 520;
+    const defenseSuspense = 360;
+    const revealTimers: number[] = [];
+    let elapsed = openingBeat;
+    roll.rolls.forEach((die, i) => {
+      if (i > 0) elapsed += betweenDice;
+      if (die.kind === 'defense') elapsed += defenseSuspense;
+      const revealAt = elapsed;
+      revealTimers.push(window.setTimeout(() => {
+        if (i === dieCount - 1) window.clearInterval(shuffleTimer);
+        setVisible((current) => (current && current.roll === roll
+          ? { ...current, revealedCount: i + 1, values: faces(i + 1, true) }
+          : current));
+      }, revealAt));
     });
 
-    preview();
-    const shuffleTimer = prefersReducedMotion ? undefined : window.setInterval(preview, 82);
-    const revealTimer = window.setTimeout(() => {
-      if (shuffleTimer !== undefined) window.clearInterval(shuffleTimer);
-      setVisible({ phase: 'revealed', roll, values: roll.rolls.map(({ value }) => value) });
-    }, castingDuration);
     return () => {
-      if (shuffleTimer !== undefined) window.clearInterval(shuffleTimer);
-      window.clearTimeout(revealTimer);
+      window.clearInterval(shuffleTimer);
+      revealTimers.forEach((id) => window.clearTimeout(id));
     };
   }, [roll]);
 
+  const overlayOpen = Boolean(visible);
+  const fullyRevealed = visible ? visible.revealedCount >= visible.roll.rolls.length : false;
+
   useEffect(() => {
-    if (!visible) return;
-    if (visible.phase === 'casting') panelRef.current?.focus();
+    if (!overlayOpen) return;
+    if (!fullyRevealed) panelRef.current?.focus();
     const containDialogFocus = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && visible.phase === 'revealed') {
+      if (event.key === 'Escape' && fullyRevealed) {
         setVisible(null);
         window.requestAnimationFrame(() => previousFocus.current?.focus());
       }
@@ -164,10 +187,10 @@ export function DiceCast({ roll }: { roll: RollResult | null }) {
     };
     window.addEventListener('keydown', containDialogFocus);
     return () => window.removeEventListener('keydown', containDialogFocus);
-  }, [visible]);
+  }, [overlayOpen, fullyRevealed]);
 
   if (!visible) return null;
-  const isRevealed = visible.phase === 'revealed';
+  const isRevealed = fullyRevealed;
   const isCombatRoll = visible.roll.rolls.some(({ kind }) => kind === 'critical' || kind === 'defense');
   const outcomeLabel = visible.roll.damage > 0
     ? `${visible.roll.damage} DAMAGE`
@@ -179,7 +202,7 @@ export function DiceCast({ roll }: { roll: RollResult | null }) {
   };
 
   return (
-    <div className={`dice-cast-overlay ${visible.phase}`} role="dialog" aria-modal="true" aria-labelledby="dice-cast-title" aria-describedby="dice-cast-result">
+    <div className={`dice-cast-overlay ${isRevealed ? 'revealed' : 'casting'}`} role="dialog" aria-modal="true" aria-labelledby="dice-cast-title" aria-describedby="dice-cast-result">
       <div className="dice-cast-grid" aria-hidden="true" />
       <section className="dice-cast-panel" ref={panelRef} tabIndex={-1}>
         <header className="dice-cast-heading">
@@ -199,7 +222,7 @@ export function DiceCast({ roll }: { roll: RollResult | null }) {
         )}
         <div className="dice-stage" role="list" aria-label="Dice checks">
           {visible.roll.rolls.map((die, index) => (
-            <RollCheck key={`${die.kind}-${index}`} die={die} value={visible.values[index]} index={index} delay={index * 80} isRevealed={isRevealed} />
+            <RollCheck key={`${die.kind}-${index}`} die={die} value={visible.values[index]} index={index} delay={index * 80} isRevealed={index < visible.revealedCount} />
           ))}
         </div>
         <div className={`combat-outcome outcome-${outcomeTone}`} id="dice-cast-result" aria-live="polite">
