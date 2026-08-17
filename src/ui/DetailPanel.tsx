@@ -1,8 +1,10 @@
 import { getCard } from '../data/catalog';
 import type { ConditionName } from '../game/effectTypes';
+import type { CardModifierInfo } from '../game/effectRuntime';
 import type { CardInstance, UnitInPlay } from '../game/types';
 import alternativeTreatmentIcon from '../assets/card-treatments/alternative.png';
 import superTreatmentIcon from '../assets/card-treatments/super.png';
+import { durationLabel, presentModifier, signed } from './cardModifiers';
 import { Cost } from './EnergyOrb';
 
 function cleanText(text: string) {
@@ -42,7 +44,7 @@ function CardTreatmentBadge({ treatment }: { treatment: 'super' | 'alternative' 
   );
 }
 
-export function DetailPanel({ instance }: { instance: CardInstance | UnitInPlay | null }) {
+export function DetailPanel({ instance, modifiers = [] }: { instance: CardInstance | UnitInPlay | null; modifiers?: readonly CardModifierInfo[] }) {
   if (!instance) {
     return (
       <aside className="detail-panel glass empty-detail" aria-label="Card detail">
@@ -54,6 +56,11 @@ export function DetailPanel({ instance }: { instance: CardInstance | UnitInPlay 
   }
   const card = getCard(instance.cardId);
   const unit = 'currentHp' in instance ? instance as UnitInPlay : null;
+  const maxHpMod = modifiers.reduce((sum, mod) => mod.kind === 'max-hp' ? sum + (mod.amount ?? 0) : sum, 0);
+  const defenseMod = modifiers.reduce((sum, mod) => mod.kind === 'defense' ? sum + (mod.amount ?? 0) : sum, 0);
+  const effectiveMaxHp = card.hp + maxHpMod;
+  const effectiveDef = card.defense + defenseMod;
+  const statClass = (delta: number) => delta === 0 ? '' : delta > 0 ? 'stat-buffed' : 'stat-debuffed';
   return (
     <aside className="detail-panel glass" aria-label={`${card.name} card detail`}>
       <div className="detail-image-wrap">
@@ -70,8 +77,27 @@ export function DetailPanel({ instance }: { instance: CardInstance | UnitInPlay 
         </div>
         <div className="detail-meta">
           <Cost cost={card.cost} isGenericCostVariable={card.isGenericCostVariable} />
-          {card.kind === 'unit' && <><span><small>HP</small>{unit ? `${Math.max(0, unit.currentHp)} / ${card.hp}` : card.hp}</span><span><small>DEF</small>{card.defense}</span></>}
+          {card.kind === 'unit' && <>
+            <span className={statClass(maxHpMod)}><small>HP</small>{unit ? `${Math.max(0, unit.currentHp)} / ${effectiveMaxHp}` : effectiveMaxHp}</span>
+            <span className={statClass(defenseMod)}><small>DEF</small>{effectiveDef}{defenseMod === 0 ? '' : ` (${signed(defenseMod)})`}</span>
+          </>}
         </div>
+        {modifiers.length > 0 && (
+          <section className="active-modifiers" aria-labelledby="active-modifiers-title">
+            <h3 id="active-modifiers-title">Active Effects</h3>
+            <div>
+              {modifiers.map((mod) => {
+                const { label, polarity } = presentModifier(mod);
+                return (
+                  <article className={`modifier-readout polarity-${polarity}`} key={mod.id}>
+                    <strong>{label}</strong>
+                    <span>{mod.sourceName} · {durationLabel(mod)}</span>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
         {unit?.conditions.length ? (
           <section className="status-conditions" aria-labelledby="status-conditions-title">
             <h3 id="status-conditions-title">Status Conditions</h3>

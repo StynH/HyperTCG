@@ -1,8 +1,10 @@
 import { getCard } from '../data/catalog';
-import type { BoardAddress, CardInstance, PlayerId, PlayerState, RowName, UnitInPlay } from '../game/types';
+import { describeCardModifiers } from '../game/effectRuntime';
+import type { BoardAddress, CardInstance, GameState, PlayerId, PlayerState, RowName, UnitInPlay } from '../game/types';
 import { CardTile } from './CardTile';
 
 interface UnitRowsProps {
+  state: GameState;
   player: PlayerState;
   playerId: PlayerId;
   selected?: BoardAddress | null;
@@ -64,7 +66,7 @@ function UnitRow({ row, ...props }: UnitRowsProps & { row: RowName }) {
             <div className={`unit-slot ${!unit && props.legalUnitPlacement ? 'legal' : ''} ${targetable ? 'legal-target' : ''}`} key={`${row}-${index}`}>
               <div className="unit-card-frame">
                 {unit ? (
-                  <CardTile instance={unit} currentHp={unit.currentHp} isReady={unit.isReady} isSelected={selected} isTarget={targetable} onHover={props.onHover} onClick={() => props.onSlotClick(address)} />
+                  <CardTile instance={unit} currentHp={unit.currentHp} isReady={unit.isReady} isSelected={selected} isTarget={targetable} modifiers={describeCardModifiers(props.state, unit.instanceId)} onHover={props.onHover} onClick={() => props.onSlotClick(address)} />
                 ) : (
                   <button
                     type="button"

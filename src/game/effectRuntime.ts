@@ -69,7 +69,7 @@ type InternalOperation =
   | { internal: 'finish-attack' }
   | { internal: 'tap-surplus'; ref: string }
   | { internal: 'tap-energy'; ref: string; store?: 'x-cost' }
-  | { internal: 'finalize-vanquish'; targetId: string; causeId?: string; damageType?: EffectEvent['damageType']; critical?: boolean; faceDown?: boolean };
+  | { internal: 'finalize-vanquish'; targetId: string; causeId?: string; damageType?: EffectEvent['damageType']; critical?: boolean; faceDown?: boolean; surplus?: number };
 
 type RuntimeOperation = EffectOperation | InternalOperation;
 
@@ -365,6 +365,84 @@ export function hasModifier(
     .some((entry) => textMatches(entry.text));
 }
 
+export type ModifierDurationLabel = 'permanent' | 'temporary' | 'while-in-play' | 'attack';
+
+export interface CardModifierInfo {
+  id: string;
+  kind: ModifierKind;
+  amount?: number;
+  text?: string;
+  sourceInstanceId: string;
+  sourceName: string;
+  sourceCardId?: string;
+  duration: ModifierDurationLabel;
+  origin: 'runtime' | 'continuous';
+}
+
+function modifierSourceName(state: GameState, sourceInstanceId: string): Pick<CardModifierInfo, 'sourceName' | 'sourceCardId'> {
+  const location = locateCard(state, sourceInstanceId);
+  const instance = location ? cardAt(state, location) : null;
+  if (!instance) return { sourceName: 'Effect' };
+  return { sourceName: getCard(instance.cardId).name, sourceCardId: instance.cardId };
+}
+
+function runtimeDuration(expires: RuntimeModifier['expires']): ModifierDurationLabel {
+  if (!expires) return 'permanent';
+  if ('attack' in expires) return 'attack';
+  return 'temporary';
+}
+
+// Enumerates every buff/debuff currently affecting a single card — both the stored
+// RuntimeModifiers and the continuous effects other in-play cards project onto it —
+// so the UI can show which cards are modified and by which source.
+export function describeCardModifiers(state: GameState, instanceId: string): CardModifierInfo[] {
+  const result: CardModifierInfo[] = [];
+  for (const modifier of state.modifiers) {
+    if (!modifier.targetIds.includes(instanceId)) continue;
+    result.push({
+      id: modifier.id,
+      kind: modifier.kind,
+      amount: modifier.amount,
+      text: modifier.text,
+      sourceInstanceId: modifier.sourceInstanceId,
+      ...modifierSourceName(state, modifier.sourceInstanceId),
+      duration: runtimeDuration(modifier.expires),
+      origin: 'runtime',
+    });
+  }
+  const targetLocation = locateCard(state, instanceId);
+  if (!targetLocation) return result;
+  const previousState = currentStateForLookup;
+  currentStateForLookup = state;
+  const continuation: EffectContinuation = { actor: 0, sourceInstanceId: '', vars: {}, frames: [] };
+  try {
+    for (const sourceId of activeSources(state)) {
+      const sourceLocation = locateCard(state, sourceId)!;
+      const source = cardAt(state, sourceLocation)!;
+      const context: ExecutionContext = { actor: sourceLocation.player, sourceId, continuation };
+      for (const continuous of getEffectScript(source.cardId).continuous ?? []) {
+        if (typeof continuous.target === 'string') continue;
+        if (continuous.condition && !evaluateCondition(state, continuous.condition, context)) continue;
+        if (!matchesSelector(state, targetLocation, continuous.target, context)) continue;
+        result.push({
+          id: sourceId + ':' + continuous.id,
+          kind: continuous.kind,
+          amount: continuous.amount ? evaluateValue(state, continuous.amount, context) : undefined,
+          text: continuous.text,
+          sourceInstanceId: sourceId,
+          sourceName: getCard(source.cardId).name,
+          sourceCardId: source.cardId,
+          duration: 'while-in-play',
+          origin: 'continuous',
+        });
+      }
+    }
+  } finally {
+    currentStateForLookup = previousState;
+  }
+  return result;
+}
+
 function evaluateValue(state: GameState, expression: ValueExpression, context: ExecutionContext): number {
   if (typeof expression === 'number') return expression;
   if ('value' in expression) {
@@ -643,9 +721,11 @@ function moveCards(
 ) {
   const ids = targetIds(state, operation.cards, context);
   const slots = operation.slots ? idsFromRef(context, operation.slots) : [];
+  const affectedControllers = new Set<PlayerId>();
   const removed = ids.flatMap((id) => {
     const location = locateCard(state, id);
     if (!location) return [];
+    if (location.zone === 'vanguard' || location.zone === 'backguard') affectedControllers.add(location.player);
     const card = removeCardAt(state, location);
     return card ? [{ card, owner: card.owner ?? location.player }] : [];
   });
@@ -662,13 +742,9 @@ function moveCards(
         state.players[owner].deck.unshift({ instanceId: item.card.instanceId, cardId: item.card.cardId, owner: item.owner });
       }
     }
-    return;
-  }
-  if (operation.to === 'hand-owner') {
+  } else if (operation.to === 'hand-owner') {
     removed.forEach(({ card, owner }) => state.players[owner].hand.push({ instanceId: card.instanceId, cardId: card.cardId, owner }));
-    return;
-  }
-  if (operation.to === 'vanguard' || operation.to === 'backguard') {
+  } else if (operation.to === 'vanguard' || operation.to === 'backguard') {
     removed.forEach(({ card, owner }, index) => {
       const encoded = slots[index];
       const parts = encoded?.split(':') ?? [];
@@ -694,32 +770,33 @@ function moveCards(
       };
       enqueuePlayedEvent(context.continuation, player, card.instanceId);
     });
-    return;
+  } else {
+    const destination = controllerFor(operation.controller, context) ?? context.actor;
+    removed.forEach(({ card, owner }) => {
+      if (operation.to === 'vanquished') {
+        state.players[destination].vanquished.push({
+          instanceId: card.instanceId,
+          cardId: card.cardId,
+          owner,
+          isFaceDown: operation.faceDown || undefined,
+        });
+      }
+      if (operation.to === 'utilities') state.players[destination].utilities.push({ instanceId: card.instanceId, cardId: card.cardId, owner });
+      if (operation.to === 'energies') {
+        const definition = getCard(card.cardId);
+        state.players[destination].energies.push({
+          instanceId: card.instanceId,
+          cardId: card.cardId,
+          owner,
+          energyType: definition.energyType!,
+          isTapped: operation.ready === false,
+        });
+      }
+      if (operation.to === 'hand') state.players[destination].hand.push({ instanceId: card.instanceId, cardId: card.cardId, owner });
+      if (operation.to === 'deck') state.players[destination].deck.push({ instanceId: card.instanceId, cardId: card.cardId, owner });
+    });
   }
-  const destination = controllerFor(operation.controller, context) ?? context.actor;
-  removed.forEach(({ card, owner }) => {
-    if (operation.to === 'vanquished') {
-      state.players[destination].vanquished.push({
-        instanceId: card.instanceId,
-        cardId: card.cardId,
-        owner,
-        isFaceDown: operation.faceDown || undefined,
-      });
-    }
-    if (operation.to === 'utilities') state.players[destination].utilities.push({ instanceId: card.instanceId, cardId: card.cardId, owner });
-    if (operation.to === 'energies') {
-      const definition = getCard(card.cardId);
-      state.players[destination].energies.push({
-        instanceId: card.instanceId,
-        cardId: card.cardId,
-        owner,
-        energyType: definition.energyType!,
-        isTapped: operation.ready === false,
-      });
-    }
-    if (operation.to === 'hand') state.players[destination].hand.push({ instanceId: card.instanceId, cardId: card.cardId, owner });
-    if (operation.to === 'deck') state.players[destination].deck.push({ instanceId: card.instanceId, cardId: card.cardId, owner });
-  });
+  affectedControllers.forEach((playerId) => enforceVanguard(state, playerId));
 }
 
 function enforceVanguard(state: GameState, playerId: PlayerId) {
@@ -748,6 +825,7 @@ function queueVanquish(
   damageType?: EffectEvent['damageType'],
   critical = false,
   faceDown = false,
+  surplus = 0,
 ) {
   const event: EffectEvent = {
     name: 'would-vanquish',
@@ -761,7 +839,7 @@ function queueVanquish(
     continuation,
     [
       { internal: 'dispatch', event },
-      { internal: 'finalize-vanquish', targetId, causeId: context.sourceId, damageType, critical, faceDown },
+      { internal: 'finalize-vanquish', targetId, causeId: context.sourceId, damageType, critical, faceDown, surplus },
     ],
     context,
   );
@@ -828,8 +906,30 @@ function finalizeVanquish(
     target: targetSubject,
     action: operation.damageType === 'attack' ? 'Attack Vanquish' : 'Vanquished',
   });
+  // Surface the kill in the dice-result overlay when the fallen Unit is this roll's defender.
+  if (state.lastRoll?.combat?.defender.instanceId === operation.targetId) {
+    state.lastRoll.combat.defender.vanquished = true;
+  }
   if (definition.kind === 'unit') enforceVanguard(state, location.player);
   if (definition.kind !== 'unit') return;
+  const surplus = Math.max(0, operation.surplus ?? 0);
+  if (surplus > 0) {
+    const isSuper = definition.unitTreatment === 'super';
+    const backlash = isSuper ? surplus * 2 : surplus;
+    const controllerId = location.player;
+    const controller = state.players[controllerId];
+    controller.hp = Math.max(0, controller.hp - backlash);
+    appendGameLog(state, {
+      kind: 'damage',
+      message: controller.name + ' took ' + backlash + ' surplus Damage from ' + definition.name
+        + (isSuper ? ' (doubled — SUPER Unit).' : '.'),
+      source: sourceSubject,
+      target: playerLogSubject(state, controllerId),
+      action: isSuper ? 'Surplus Damage (SUPER)' : 'Surplus Damage',
+      amount: backlash,
+    });
+    if (controller.hp === 0) state.winner = controllerId === 0 ? 1 : 0;
+  }
   const event: EffectEvent = {
     name: 'unit-vanquished',
     sourceId: operation.causeId,
@@ -871,6 +971,8 @@ function applyDamage(
         id,
         damageType,
         damageType === 'attack' && Boolean(continuation.attack?.isCritical),
+        false,
+        -unit.currentHp,
       );
     }
   }
@@ -940,6 +1042,7 @@ function rotateUnit(state: GameState, id: string, exhaust: boolean, context: Exe
     target: cardLogSubject(unit, location.player),
     action: 'Rotate → ' + (destination === 'vanguard' ? 'Vanguard' : 'Backguard'),
   });
+  enforceVanguard(state, location.player);
   const event: EffectEvent = { name: 'unit-rotated', sourceId: context.sourceId, targetId: id, controller: location.player };
   pushFrame(context.continuation, [{ internal: 'dispatch', event }], context);
 }

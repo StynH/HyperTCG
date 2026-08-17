@@ -70,6 +70,7 @@ export function createGame(options: GameOptions = {}): GameState {
     lastRoll: null,
     winner: null,
     isOpponentActing: false,
+    opponentStage: null,
     actionSequence: 0,
     rollSequence: 0,
     usedActions: {},
@@ -281,6 +282,9 @@ export function rotateUnitActionError(state: GameState, address: BoardAddress): 
   const destination: RowName = address.row === 'vanguard' ? 'backguard' : 'vanguard';
   const openIndex = player[destination].findIndex((slot) => slot === null);
   if (openIndex < 0) return 'The ' + destination + ' is full.';
+  if (address.row === 'vanguard' && player.vanguard.filter(Boolean).length === 1) {
+    return 'Your Vanguard cannot be left empty. Rotate a Backguard Unit forward first.';
+  }
   return null;
 }
 
@@ -522,6 +526,7 @@ function completePendingTurn(state: GameState, random: () => number) {
   if (player === 0) state.round += 1;
   beginTurn(state, player, random);
   state.isOpponentActing = player === 1;
+  state.opponentStage = player === 1 ? 'energy' : null;
   appendGameLog(state, {
     kind: 'turn',
     message: player === 0
@@ -581,8 +586,89 @@ export function runOpponentTurn(state: GameState, random: () => number = secureR
     next.pendingTurn = 0;
     if (!next.pendingChoice) completePendingTurn(next, random);
   }
-  if (!next.pendingChoice) next.isOpponentActing = false;
+  if (!next.pendingChoice) {
+    next.isOpponentActing = false;
+    next.opponentStage = null;
+  }
   return next;
+}
+
+// Advances the opponent's turn by a single visible action so the UI can pace each
+// play and attack (with its own dice overlay) instead of resolving the whole turn
+// at once. Setup stages that have nothing to do collapse together to avoid dead
+// beats; each attack is its own step. See runOpponentTurn for the batched variant
+// used by the headless test harness.
+export function runOpponentStep(state: GameState, random: () => number = secureRandom): GameState {
+  if (state.pendingMulligan || state.pendingChoice || state.winner !== null || state.activePlayer !== 1) return state;
+  let next = cloneState(state);
+  for (;;) {
+    switch (next.opponentStage) {
+      case 'energy': {
+        next.opponentStage = 'unit';
+        const energy = next.players[1].hand.find((held) => getCard(held.cardId).kind === 'energy');
+        if (energy && next.players[1].energyPlaysThisTurn < 1 + modifierTotal(next, null, 1, 'extra-energy-play')) {
+          next = playEnergy(next, 1, energy.instanceId).state;
+          return next;
+        }
+        continue;
+      }
+      case 'unit': {
+        next.opponentStage = 'utility';
+        const unit = affordable(next.players[1], 'unit');
+        if (unit) {
+          const row: RowName = next.players[1].vanguard.some((slot) => slot === null) ? 'vanguard' : 'backguard';
+          const index = next.players[1][row].findIndex((slot) => slot === null);
+          if (index >= 0) {
+            next = playUnit(next, { player: 1, row, index }, unit.instanceId).state;
+            return next;
+          }
+        }
+        continue;
+      }
+      case 'utility': {
+        next.opponentStage = next.players[1].hasTakenFirstTurn ? 'attacks' : 'end';
+        const utility = affordable(next.players[1], 'utility');
+        if (utility) {
+          const result = playUtility(next, 1, utility.instanceId);
+          if (!result.error) {
+            next = result.state;
+            return next;
+          }
+        }
+        continue;
+      }
+      case 'attacks': {
+        for (let index = 0; index < 5; index += 1) {
+          const attacker = next.players[1].vanguard[index];
+          if (!attacker?.isReady) continue;
+          const attackIndex = availableAttacks(next, attacker.instanceId).findIndex(({ attack }) =>
+            isDamagingAttack(attack) && energyPayment(attack.cost, next.players[1].energies) !== null);
+          if (attackIndex < 0) continue;
+          const targetIndex = next.players[0].vanguard.findIndex(Boolean);
+          const target = targetIndex >= 0 ? { player: 0 as const, row: 'vanguard' as const, index: targetIndex } : null;
+          const result = useAttack(next, { player: 1, row: 'vanguard', index }, attackIndex, target, random);
+          if (result.error) continue;
+          next = result.state;
+          return next;
+        }
+        next.opponentStage = 'end';
+        continue;
+      }
+      default: {
+        processTurnEnd(next, 1, random);
+        next.players[1].hasTakenFirstTurn = true;
+        if (next.winner === null) {
+          next.pendingTurn = 0;
+          if (!next.pendingChoice) completePendingTurn(next, random);
+        }
+        if (!next.pendingChoice) {
+          next.isOpponentActing = false;
+          next.opponentStage = null;
+        }
+        return next;
+      }
+    }
+  }
 }
 
 export function endPlayerTurn(state: GameState, random: () => number = secureRandom): GameResult {

@@ -113,7 +113,7 @@ export interface RollResult {
   combat?: {
     attackName: string;
     attacker: { instanceId: string; cardId: string; name: string };
-    defender: { instanceId?: string; cardId?: string; name: string };
+    defender: { instanceId?: string; cardId?: string; name: string; vanquished?: boolean };
   };
 }
 
@@ -160,6 +160,7 @@ export interface GameState {
   lastRoll: RollResult | null;
   winner: PlayerId | null;
   isOpponentActing: boolean;
+  opponentStage: 'energy' | 'unit' | 'utility' | 'attacks' | 'end' | null;
   actionSequence: number;
   rollSequence: number;
   usedActions: Record<string, number>;

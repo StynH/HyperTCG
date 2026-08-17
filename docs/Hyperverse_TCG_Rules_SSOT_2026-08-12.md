@@ -738,6 +738,16 @@ When a Unit is Vanquished:
 
 Units, Utility cards, and Energy may all be Vanquished.
 
+### Surplus Damage
+
+Whenever a Unit is Vanquished, any surplus Damage is inflicted on the player who controlled that Unit.
+
+- Surplus Damage is the amount of Damage beyond what was required to reduce the Unit's HP to 0.
+- Example: a Unit with 10 HP remaining that takes 30 Damage is Vanquished with 20 surplus Damage; its controller loses 20 HP.
+- A Unit Vanquished by an effect that does not deal Damage (for example, a direct Vanquish or the Doomed condition) produces no surplus Damage.
+- If a **SUPER** Unit is Vanquished, its surplus Damage is doubled before being inflicted on its controller.
+- Surplus Damage that reduces a player's HP to 0 causes that player to lose the match.
+
 ### Face-Down Vanquished Cards
 
 A card Vanquished face down remains face down and unknown in the Vanquished Pile.
@@ -768,7 +778,7 @@ The penalty:
 
 - Is identical for every SUPER Unit.
 - Is not individually printed as a different drawback on each SUPER card.
-- Has not yet been defined.
+- Doubles the surplus Damage inflicted on the controller when the SUPER Unit is Vanquished (see [Surplus Damage](#surplus-damage)).
 
 SUPER is a classification and does not replace rarity.
 
@@ -1036,7 +1046,6 @@ The **Hero** Subtitle is intended to remain rare.
 
 The following systems are still unresolved and must not be inferred:
 
-- Universal SUPER defeat penalty
 - Named-Unit uniqueness
 - Full turn sequence
 - Draw timing after the first-turn restriction

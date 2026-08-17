@@ -4,7 +4,7 @@ import {
   activateAbility, availableAttacks, chooseEffect, createGame, endPlayerTurn, mulliganOpeningHand,
   playUnit, playUtility, useAttack,
 } from './engine';
-import { modifierTotal, startEffects } from './effectRuntime';
+import { describeCardModifiers, modifierTotal, startEffects } from './effectRuntime';
 import {
   addAllTestEnergy, addTestCondition, addTestEnergy, addTestUnit, createCleanTestState,
   deterministicRandom, populateTestZones, resolveAllTestChoices, testInstanceId,
@@ -244,6 +244,23 @@ export function runEngineSelfTests(): TestResult[] {
       const ally = addUnit(state, 0, 'vanguard', 1, '078-pilot');
       expect(modifierTotal(state, ally, null, 'defense') === 10, 'TCR DEF aura was not applied');
     }),
+    run('reports active buffs and debuffs on a card with their sources', () => {
+      const state = cleanState();
+      addUnit(state, 0, 'vanguard', 0, '008-jean-luc-picard');
+      const ally = addUnit(state, 0, 'vanguard', 1, '078-pilot');
+      startEffects(state, 0, ally, [
+        { op: 'modifier', target: 'source', kind: 'attack-damage', amount: 20, duration: 'turn' },
+      ]);
+      const mods = describeCardModifiers(state, ally);
+      const aura = mods.find(({ kind, origin }) => kind === 'defense' && origin === 'continuous');
+      expect(aura?.amount === 10, 'Continuous DEF aura was not reported');
+      expect(aura?.sourceName === getCard('008-jean-luc-picard').name, 'Aura did not name its source card');
+      expect(aura?.duration === 'while-in-play', 'Continuous aura had the wrong duration');
+      const runtime = mods.find(({ kind, origin }) => kind === 'attack-damage' && origin === 'runtime');
+      expect(runtime?.amount === 20, 'Runtime buff was not reported');
+      expect(runtime?.sourceInstanceId === ally && runtime.duration === 'temporary', 'Runtime buff omitted its source or duration');
+      expect(describeCardModifiers(state, '008-jean-luc-picard').every(({ kind }) => kind !== 'attack-damage'), 'A buff leaked onto the wrong card');
+    }),
     run('chains continuous type grants into other generic auras', () => {
       const state = cleanState();
       addUnit(state, 0, 'vanguard', 0, '008-jean-luc-picard');
@@ -280,6 +297,7 @@ export function runEngineSelfTests(): TestResult[] {
       state.activePlayer = 1;
       addUnit(state, 1, 'vanguard', 0, '069-conscript');
       const defender = addUnit(state, 0, 'vanguard', 0, '017-cyclops-tactician');
+      const rearguard = addUnit(state, 0, 'backguard', 0, '069-conscript');
       addEnergy(state, 1, 'gluon');
       addEnergy(state, 0, 'muon');
       addEnergy(state, 0, 'photon');
@@ -297,6 +315,7 @@ export function runEngineSelfTests(): TestResult[] {
       expect(!escaped.error, escaped.error ?? 'Reaction failed');
       expect(escaped.state.players[0].backguard.some((unit) => unit?.instanceId === defender), 'Target did not Rotate');
       expect(escaped.state.players[0].backguard.find((unit) => unit?.instanceId === defender)?.currentHp === getCard('017-cyclops-tactician').hp, 'Failed attack dealt Damage');
+      expect(escaped.state.players[0].vanguard.some((unit) => unit?.instanceId === rearguard), 'Empty Vanguard was not filled from the Backguard');
     }),
     run('resolves Infected at the generic start-of-turn condition phase', () => {
       const state = cleanState();

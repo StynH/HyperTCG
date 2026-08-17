@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { getCard } from '../data/catalog';
 import {
   activateAbility, attackActionError, availableActivatedAbilities, availableAttacks, chooseEffect, createGame,
   endPlayerTurn, mulliganOpeningHand, playEnergy, playEnergyActionError, playUnit, playUtility,
-  playUtilityActionError, rotateUnit, rotateUnitActionError, runOpponentTurn, useAttack,
+  playUtilityActionError, rotateUnit, rotateUnitActionError, runOpponentStep, useAttack,
 } from './engine';
 import type { BoardAddress, GameResult, GameState } from './types';
 
@@ -14,6 +14,7 @@ export function useGame(playerDeckId: string, opponentDeckId: string) {
   );
   const [state, setState] = useState<GameState>(createSelectedGame);
   const [notice, setNotice] = useState('Choose up to three opening cards to mulligan, or keep all seven.');
+  const opponentStep = useCallback(() => setState((current) => runOpponentStep(current)), []);
 
   const apply = useCallback((result: GameResult, successNotice = 'Action resolved.') => {
     if (result.error) {
@@ -25,16 +26,11 @@ export function useGame(playerDeckId: string, opponentDeckId: string) {
     return true;
   }, []);
 
-  useEffect(() => {
-    if (!state.isOpponentActing || state.winner !== null || state.pendingChoice) return;
-    const timer = window.setTimeout(() => setState((current) => runOpponentTurn(current)), 850);
-    return () => window.clearTimeout(timer);
-  }, [state.isOpponentActing, state.pendingChoice, state.winner]);
-
   return {
     state,
     notice,
     setNotice,
+    opponentStep,
     reset: () => { setState(createSelectedGame()); setNotice('Choose up to three opening cards to mulligan, or keep all seven.'); },
     mulligan: (selectedIds: readonly string[]) => apply(
       mulliganOpeningHand(state, selectedIds),

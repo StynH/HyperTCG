@@ -33,11 +33,11 @@ export function GameBoard(props: GameBoardProps) {
           <UtilityZone cards={opponent.utilities} playerId={1} selectedId={props.selectedUtilityId} onHover={props.onHover} onClick={props.onUtilityClick} />
           <VanquishedPile cards={opponent.vanquished} playerName={opponent.name} onPreview={props.onPreviewVanquished} onSelect={props.onSelectVanquished} />
         </div>
-        <UnitRows player={opponent} playerId={1} reversed selected={props.selectedUnit} targetMode={props.isTargeting} selectedUtilityId={props.selectedUtilityId} onSlotClick={props.onSlotClick} onHover={props.onHover} onUtilityClick={props.onUtilityClick} />
+        <UnitRows state={props.state} player={opponent} playerId={1} reversed selected={props.selectedUnit} targetMode={props.isTargeting} selectedUtilityId={props.selectedUtilityId} onSlotClick={props.onSlotClick} onHover={props.onHover} onUtilityClick={props.onUtilityClick} />
       </div>
       <div className="rift-divider"><span /><b>THE RIFT</b><span /></div>
       <div className="board-half player-half">
-        <UnitRows player={you} playerId={0} selected={props.selectedUnit} legalUnitPlacement={props.isPlacingUnit} selectedUtilityId={props.selectedUtilityId} onSlotClick={props.onSlotClick} onHover={props.onHover} onUtilityClick={props.onUtilityClick} />
+        <UnitRows state={props.state} player={you} playerId={0} selected={props.selectedUnit} legalUnitPlacement={props.isPlacingUnit} selectedUtilityId={props.selectedUtilityId} onSlotClick={props.onSlotClick} onHover={props.onHover} onUtilityClick={props.onUtilityClick} />
         <div className="zone-strip">
           <UtilityZone cards={you.utilities} playerId={0} selectedId={props.selectedUtilityId} onHover={props.onHover} onClick={props.onUtilityClick} />
           <VanquishedPile cards={you.vanquished} playerName={you.name} onPreview={props.onPreviewVanquished} onSelect={props.onSelectVanquished} />

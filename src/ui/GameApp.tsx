@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getCard } from '../data/catalog';
+import { describeCardModifiers } from '../game/effectRuntime';
 import { getDeckPreset } from '../game/deck';
 import { useGame } from '../game/useGame';
 import type { BoardAddress, CardInstance, UnitInPlay } from '../game/types';
@@ -29,6 +30,30 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
   const [selectedUnit, setSelectedUnit] = useState<UnitSelection | null>(null);
   const [selectedUtility, setSelectedUtility] = useState<CardInstance | null>(null);
   const [pendingAttack, setPendingAttack] = useState<number | null>(null);
+  // The board lags behind the engine while a dice roll animates, so the outcome
+  // appears on the field only after the overlay has revealed it (see DiceCast onResolved).
+  const [boardState, setBoardState] = useState(game.state);
+  const [revealedSeq, setRevealedSeq] = useState<number | null>(null);
+  const [dismissedSeq, setDismissedSeq] = useState<number | null>(null);
+  useEffect(() => {
+    const roll = game.state.lastRoll;
+    const holdingForRoll = roll !== null && roll.sequence !== revealedSeq;
+    if (!holdingForRoll) setBoardState(game.state);
+  }, [game.state, revealedSeq]);
+  // Advance the opponent one action at a time so each play and attack lands on its
+  // own beat. We wait for the dice overlay of the previous action to be dismissed
+  // before the next step, so combat rolls never fly past unseen. Depending on the
+  // whole state object re-arms the timer after every step — a setup play changes
+  // none of the primitive guards, so keying on those alone would stall the AI.
+  const gameState = game.state;
+  const { opponentStep } = game;
+  useEffect(() => {
+    if (!gameState.isOpponentActing || gameState.winner !== null || gameState.pendingChoice) return;
+    const overlayPending = gameState.lastRoll !== null && gameState.lastRoll.sequence !== dismissedSeq;
+    if (overlayPending) return;
+    const timer = window.setTimeout(opponentStep, 700);
+    return () => window.clearTimeout(timer);
+  }, [gameState, dismissedSeq, opponentStep]);
   const you = game.state.players[0];
   const canAct = game.state.activePlayer === 0 && !game.state.isOpponentActing
     && game.state.winner === null && !game.state.pendingMulligan;
@@ -46,6 +71,7 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
     ? game.abilities.filter(({ sourceInstanceId }) => sourceInstanceId === selectedSourceId)
     : [];
   const detail = hovered ?? selectedHand ?? selectedUnit?.unit ?? selectedUtility ?? null;
+  const detailModifiers = detail && 'currentHp' in detail ? describeCardModifiers(game.state, detail.instanceId) : [];
 
   const clearSelection = () => {
     setSelectedHand(null);
@@ -149,9 +175,9 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
       </header>
 
       <div className="game-grid">
-        <DetailPanel instance={detail} />
+        <DetailPanel instance={detail} modifiers={detailModifiers} />
         <div className="center-stage">
-          <GameBoard state={game.state} selectedUnit={selectedUnit?.address ?? null} selectedHand={selectedHand} selectedUtilityId={selectedUtility?.instanceId} isPlacingUnit={isPlacingUnit} isTargeting={isTargeting} onSlotClick={clickSlot} onHover={setHovered} onPreviewVanquished={setHovered} onSelectVanquished={selectVanquished} onUtilityClick={selectUtility} />
+          <GameBoard state={boardState} selectedUnit={selectedUnit?.address ?? null} selectedHand={selectedHand} selectedUtilityId={selectedUtility?.instanceId} isPlacingUnit={isPlacingUnit} isTargeting={isTargeting} onSlotClick={clickSlot} onHover={setHovered} onPreviewVanquished={setHovered} onSelectVanquished={selectVanquished} onUtilityClick={selectUtility} />
           <ActionDock
             notice={game.notice}
             handSelection={selectedHand}
@@ -176,7 +202,7 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
         <GameLog log={game.state.log} roll={game.state.lastRoll} />
       </div>
 
-      <DiceCast roll={game.state.lastRoll} />
+      <DiceCast roll={game.state.lastRoll} onResolved={setRevealedSeq} onDismiss={setDismissedSeq} />
       {game.state.pendingMulligan?.player === 0 && (
         <MulliganPanel
           cards={you.hand}

@@ -90,29 +90,34 @@ function RollCheck({ die, value, delay, index, isRevealed }: {
   );
 }
 
-function Combatant({ participant, role }: {
+function Combatant({ participant, role, vanquished }: {
   participant: NonNullable<RollResult['combat']>['attacker'] | NonNullable<RollResult['combat']>['defender'];
   role: 'Attacking Unit' | 'Defending Unit';
+  vanquished?: boolean;
 }) {
   const card = participant.cardId ? getCard(participant.cardId) : null;
   return (
-    <article className={`combatant ${card ? '' : 'combatant-player'}`}>
+    <article className={`combatant ${card ? '' : 'combatant-player'} ${vanquished ? 'is-vanquished' : ''}`}>
       <div className="combatant-portrait">
         {card ? <img src={card.image} alt="" /> : <span aria-hidden="true">HP</span>}
+        {vanquished && <span className="combatant-skull" aria-hidden="true">☠</span>}
       </div>
       <div>
         <small>{card ? role : 'Defending player'}</small>
         <strong>{participant.name}</strong>
-        {card && <span>{card.type} · {card.subtitle}</span>}
+        {vanquished
+          ? <span className="combatant-fallen">Vanquished</span>
+          : card && <span>{card.type} · {card.subtitle}</span>}
       </div>
     </article>
   );
 }
 
-export function DiceCast({ roll }: { roll: RollResult | null }) {
+export function DiceCast({ roll, onResolved, onDismiss }: { roll: RollResult | null; onResolved?: (sequence: number) => void; onDismiss?: (sequence: number) => void }) {
   const lastSequence = useRef<number | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
+  const resolvedSequence = useRef<number | null>(null);
   const [visible, setVisible] = useState<VisibleCast | null>(null);
 
   useEffect(() => {
@@ -170,11 +175,21 @@ export function DiceCast({ roll }: { roll: RollResult | null }) {
   const overlayOpen = Boolean(visible);
   const fullyRevealed = visible ? visible.revealedCount >= visible.roll.rolls.length : false;
 
+  // Reveal the outcome on the battlefield only once the dice have finished — while
+  // the overlay covers the board — so the result never flashes ahead of the roll.
+  useEffect(() => {
+    if (visible && fullyRevealed && resolvedSequence.current !== visible.roll.sequence) {
+      resolvedSequence.current = visible.roll.sequence;
+      onResolved?.(visible.roll.sequence);
+    }
+  }, [visible, fullyRevealed, onResolved]);
+
   useEffect(() => {
     if (!overlayOpen) return;
     if (!fullyRevealed) panelRef.current?.focus();
     const containDialogFocus = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && fullyRevealed) {
+        if (visible) onDismiss?.(visible.roll.sequence);
         setVisible(null);
         window.requestAnimationFrame(() => previousFocus.current?.focus());
       }
@@ -192,11 +207,20 @@ export function DiceCast({ roll }: { roll: RollResult | null }) {
   if (!visible) return null;
   const isRevealed = fullyRevealed;
   const isCombatRoll = visible.roll.rolls.some(({ kind }) => kind === 'critical' || kind === 'defense');
-  const outcomeLabel = visible.roll.damage > 0
-    ? `${visible.roll.damage} DAMAGE`
-    : isCombatRoll ? 'NO DAMAGE' : 'EFFECT RESOLVED';
-  const outcomeTone = visible.roll.damage > 0 ? 'damage' : isCombatRoll ? 'blocked' : 'effect';
+  const defenderVanquished = isRevealed && Boolean(visible.roll.combat?.defender.vanquished);
+  const outcomeLabel = defenderVanquished
+    ? 'VANQUISHED'
+    : visible.roll.damage > 0
+      ? `${visible.roll.damage} DAMAGE`
+      : isCombatRoll ? 'NO DAMAGE' : 'EFFECT RESOLVED';
+  const outcomeTone = defenderVanquished
+    ? 'vanquish'
+    : visible.roll.damage > 0 ? 'damage' : isCombatRoll ? 'blocked' : 'effect';
+  const outcomeSummary = defenderVanquished
+    ? `${visible.roll.combat?.defender.name ?? 'The Unit'} is Vanquished — ${visible.roll.damage} Damage dealt.`
+    : visible.roll.summary;
   const dismiss = () => {
+    onDismiss?.(visible.roll.sequence);
     setVisible(null);
     window.requestAnimationFrame(() => previousFocus.current?.focus());
   };
@@ -217,7 +241,7 @@ export function DiceCast({ roll }: { roll: RollResult | null }) {
           <section className="combat-matchup" aria-label={`${visible.roll.combat.attacker.name} attacks ${visible.roll.combat.defender.name} with ${visible.roll.combat.attackName}`}>
             <Combatant participant={visible.roll.combat.attacker} role="Attacking Unit" />
             <div className="combat-versus"><small>ATTACK</small><strong>{visible.roll.combat.attackName}</strong><span aria-hidden="true">→</span></div>
-            <Combatant participant={visible.roll.combat.defender} role="Defending Unit" />
+            <Combatant participant={visible.roll.combat.defender} role="Defending Unit" vanquished={defenderVanquished} />
           </section>
         )}
         <div className="dice-stage" role="list" aria-label="Dice checks">
@@ -226,9 +250,9 @@ export function DiceCast({ roll }: { roll: RollResult | null }) {
           ))}
         </div>
         <div className={`combat-outcome outcome-${outcomeTone}`} id="dice-cast-result" aria-live="polite">
-          <span className="outcome-mark" aria-hidden="true">{isRevealed ? (visible.roll.damage > 0 ? '−' : isCombatRoll ? '0' : '◆') : '…'}</span>
-          <div><small>{isRevealed ? 'FINAL OUTCOME' : 'RESOLVING'}</small><strong>{isRevealed ? outcomeLabel : 'CHECKS IN PROGRESS'}</strong></div>
-          <p>{isRevealed ? visible.roll.summary : 'Effect, Critical, and Defense rules resolve in sequence.'}</p>
+          <span className="outcome-mark" aria-hidden="true">{isRevealed ? (defenderVanquished ? '☠' : visible.roll.damage > 0 ? '−' : isCombatRoll ? '0' : '◆') : '…'}</span>
+          <div><small>{isRevealed ? (defenderVanquished ? 'UNIT VANQUISHED' : 'FINAL OUTCOME') : 'RESOLVING'}</small><strong>{isRevealed ? outcomeLabel : 'CHECKS IN PROGRESS'}</strong></div>
+          <p>{isRevealed ? outcomeSummary : 'Effect, Critical, and Defense rules resolve in sequence.'}</p>
         </div>
         {isRevealed && <div className="dice-cast-actions"><button className="dice-cast-continue" type="button" autoFocus onClick={dismiss}>Continue battle <span aria-hidden="true">→</span></button><small>ESC</small></div>}
       </section>
