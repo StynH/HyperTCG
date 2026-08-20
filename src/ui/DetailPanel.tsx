@@ -4,7 +4,7 @@ import type { CardModifierInfo } from '../game/effectRuntime';
 import type { CardInstance, UnitInPlay } from '../game/types';
 import alternativeTreatmentIcon from '../assets/card-treatments/alternative.png';
 import superTreatmentIcon from '../assets/card-treatments/super.png';
-import { durationLabel, presentModifier, signed } from './cardModifiers';
+import { describeSources, groupModifiers, signed } from './cardModifiers';
 import { Cost } from './EnergyOrb';
 
 function cleanText(text: string) {
@@ -86,15 +86,12 @@ export function DetailPanel({ instance, modifiers = [] }: { instance: CardInstan
           <section className="active-modifiers" aria-labelledby="active-modifiers-title">
             <h3 id="active-modifiers-title">Active Effects</h3>
             <div>
-              {modifiers.map((mod) => {
-                const { label, polarity } = presentModifier(mod);
-                return (
-                  <article className={`modifier-readout polarity-${polarity}`} key={mod.id}>
-                    <strong>{label}</strong>
-                    <span>{mod.sourceName} · {durationLabel(mod)}</span>
-                  </article>
-                );
-              })}
+              {groupModifiers(modifiers).map((group) => (
+                <article className={`modifier-readout polarity-${group.polarity}`} key={group.key}>
+                  <strong>{group.label}</strong>
+                  <span>{describeSources(group)} · {group.duration}</span>
+                </article>
+              ))}
             </div>
           </section>
         )}
