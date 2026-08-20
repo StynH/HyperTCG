@@ -609,8 +609,8 @@ function completePendingTurn(state: GameState, random: () => number) {
     kind: 'turn',
     message: player === 0
       ? 'Round ' + state.round + '. Your Energy and Units are Ready.'
-      : 'Opponent turn. The Rift Automaton is evaluating the board…',
-    source: rulesLogSubject('Turn sequence'),
+      : 'Opponent turn.',
+    source: rulesLogSubject('Turn'),
     target: playerLogSubject(state, player),
     action: player === 0 ? 'Your turn' : 'Opponent turn',
   });

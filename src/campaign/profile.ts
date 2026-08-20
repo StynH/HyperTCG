@@ -2,8 +2,17 @@ import type { OpenedBooster } from './boosters';
 import {
   createOwnedCampaignCard, type CardCondition, type OwnedCampaignCard,
 } from './cardCondition';
+import { gradeCardWithSgs, type SgsGradingRecord } from './grading';
 
 export interface CampaignProfile {
+  version: 3;
+  celestialCredits: number;
+  collection: Record<string, number>;
+  ownedCards: OwnedCampaignCard[];
+  packsOpened: number;
+}
+
+interface VersionTwoCampaignProfile {
   version: 2;
   celestialCredits: number;
   collection: Record<string, number>;
@@ -25,7 +34,7 @@ const STORAGE_KEY = 'hyperverse-campaign-v1';
 
 function createDefaultProfile(): CampaignProfile {
   return {
-    version: 2,
+    version: 3,
     celestialCredits: STARTING_CELESTIAL_CREDITS,
     collection: {},
     ownedCards: [],
@@ -62,10 +71,20 @@ function isValidOwnedCard(value: unknown): value is OwnedCampaignCard {
     && card.instanceId.length > 0
     && typeof card.cardId === 'string'
     && card.cardId.length > 0
-    && isValidCondition(card.condition);
+    && isValidCondition(card.condition)
+    && (card.grading === undefined || isValidGradingRecord(card.grading));
 }
 
-function hasValidBaseFields(value: Partial<CampaignProfile | LegacyCampaignProfile>): boolean {
+function isValidGradingRecord(value: unknown): value is SgsGradingRecord {
+  if (!value || typeof value !== 'object') return false;
+  const grading = value as Partial<SgsGradingRecord>;
+  return grading.company === 'SGS'
+    && isScoreBetween(grading.grade, 1)
+    && typeof grading.certificateNumber === 'string'
+    && grading.certificateNumber.startsWith('SGS-');
+}
+
+function hasValidBaseFields(value: Partial<CampaignProfile | VersionTwoCampaignProfile | LegacyCampaignProfile>): boolean {
   return Number.isSafeInteger(value.celestialCredits)
     && value.celestialCredits! >= 0
     && Number.isSafeInteger(value.packsOpened)
@@ -76,6 +95,15 @@ function hasValidBaseFields(value: Partial<CampaignProfile | LegacyCampaignProfi
 function isValidProfile(value: unknown): value is CampaignProfile {
   if (!value || typeof value !== 'object') return false;
   const profile = value as Partial<CampaignProfile>;
+  return profile.version === 3
+    && hasValidBaseFields(profile)
+    && Array.isArray(profile.ownedCards)
+    && profile.ownedCards.every(isValidOwnedCard);
+}
+
+function isValidVersionTwoProfile(value: unknown): value is VersionTwoCampaignProfile {
+  if (!value || typeof value !== 'object') return false;
+  const profile = value as Partial<VersionTwoCampaignProfile>;
   return profile.version === 2
     && hasValidBaseFields(profile)
     && Array.isArray(profile.ownedCards)
@@ -92,7 +120,7 @@ function migrateLegacyProfile(profile: LegacyCampaignProfile): CampaignProfile {
   const ownedCards = Object.entries(profile.collection).flatMap(([cardId, count]) => (
     Array.from({ length: count }, () => createOwnedCampaignCard(cardId))
   ));
-  return { ...profile, version: 2, ownedCards };
+  return { ...profile, version: 3, ownedCards };
 }
 
 export function loadCampaignProfile(): CampaignProfile {
@@ -101,6 +129,11 @@ export function loadCampaignProfile(): CampaignProfile {
     if (!serialized) return createDefaultProfile();
     const profile: unknown = JSON.parse(serialized);
     if (isValidProfile(profile)) return profile;
+    if (isValidVersionTwoProfile(profile)) {
+      const migratedProfile: CampaignProfile = { ...profile, version: 3 };
+      saveCampaignProfile(migratedProfile);
+      return migratedProfile;
+    }
     if (isValidLegacyProfile(profile)) {
       const migratedProfile = migrateLegacyProfile(profile);
       saveCampaignProfile(migratedProfile);
@@ -111,6 +144,16 @@ export function loadCampaignProfile(): CampaignProfile {
     console.warn('Campaign progress could not be loaded.', error);
     return createDefaultProfile();
   }
+}
+
+export function gradeCampaignCard(profile: CampaignProfile, instanceId: string): CampaignProfile {
+  const cardIndex = profile.ownedCards.findIndex((card) => card.instanceId === instanceId);
+  if (cardIndex < 0) throw new Error(`Unknown campaign card instance: ${instanceId}`);
+  const gradedCard = gradeCardWithSgs(profile.ownedCards[cardIndex]);
+  if (gradedCard === profile.ownedCards[cardIndex]) return profile;
+  const ownedCards = [...profile.ownedCards];
+  ownedCards[cardIndex] = gradedCard;
+  return { ...profile, ownedCards };
 }
 
 export function saveCampaignProfile(profile: CampaignProfile): void {

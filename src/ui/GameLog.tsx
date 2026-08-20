@@ -43,8 +43,8 @@ function FeedEntry({ entry, index }: { entry: GameLogEntry; index: number }) {
 export function GameLog({ log, roll }: { log: GameLogEntry[]; roll: RollResult | null }) {
   const rollValues = roll?.rolls.map(({ sides, value }) => `d${sides} ${value}`).join(' · ');
   return (
-    <aside className="game-log glass" aria-labelledby="rift-feed-heading">
-      <div className="log-heading"><span id="rift-feed-heading">Rift feed</span><i>LIVE</i></div>
+    <aside className="game-log glass" aria-labelledby="match-log-heading">
+      <div className="log-heading"><span id="match-log-heading">Match log</span><i>RECENT</i></div>
       {roll && (
         <div className="roll-card">
           <CrosshairIcon size={22} />

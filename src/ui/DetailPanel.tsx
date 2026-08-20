@@ -49,7 +49,7 @@ export function DetailPanel({ instance, modifiers = [] }: { instance: CardInstan
     return (
       <aside className="detail-panel glass empty-detail" aria-label="Card detail">
         <div className="detail-reticle" aria-hidden="true"><span /></div>
-        <h2>Card telemetry</h2>
+        <h2>Card details</h2>
         <p>Hover or focus any visible card to inspect its full artwork, costs, stats, and printed text.</p>
       </aside>
     );

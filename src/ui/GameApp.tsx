@@ -103,8 +103,8 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
     setPendingAttack(null);
     setSelectedHand(instance);
     if (card.kind === 'unit') game.setNotice('Choose a highlighted Vanguard or Backguard slot.');
-    if (card.kind === 'energy') game.setNotice(`Ready to play ${card.name}. Confirm the Energy play in Command.`);
-    if (card.kind === 'utility') game.setNotice(`Ready to play ${card.name}. Review it, then confirm in Command.`);
+    if (card.kind === 'energy') game.setNotice(`Selected ${card.name}. Choose Play Energy to confirm.`);
+    if (card.kind === 'utility') game.setNotice(`Selected ${card.name}. Choose Play Utility to confirm.`);
   };
 
   const playSelectedHand = () => {
@@ -173,7 +173,7 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
   };
 
   const topPrompt = useMemo(() => {
-    if (game.state.winner !== null) return game.state.winner === 0 ? 'RIFT SECURED' : 'SIGNAL LOST';
+    if (game.state.winner !== null) return game.state.winner === 0 ? 'YOU WIN' : 'YOU LOSE';
     if (game.state.pendingMulligan) return 'OPENING HAND';
     if (game.state.isOpponentActing) return 'OPPONENT TURN';
     return 'YOUR TURN';
@@ -230,7 +230,7 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
       )}
       {game.state.winner !== null && (
         <div className="result-overlay" role="dialog" aria-modal="true" aria-labelledby="result-title">
-          <div className="result-card glass"><LogoGlyph size={58} /><span>Match complete</span><h1 id="result-title">{game.state.winner === 0 ? 'Rift secured' : 'Signal lost'}</h1><p>{game.state.winner === 0 ? 'The opposing timeline has collapsed.' : 'The Rift Automaton controls this timeline.'}</p><div className="result-actions"><button type="button" onClick={game.reset}>Play again</button><button type="button" onClick={onExit}>Change deck</button></div></div>
+          <div className="result-card glass"><LogoGlyph size={58} /><span>Match complete</span><h1 id="result-title">{game.state.winner === 0 ? 'You win' : 'You lose'}</h1><p>{game.state.winner === 0 ? 'The opponent has no HP remaining.' : 'You have no HP remaining.'}</p><div className="result-actions"><button type="button" onClick={game.reset}>Play again</button><button type="button" onClick={onExit}>Change deck</button></div></div>
         </div>
       )}
       {game.state.pendingChoice?.player === 0 && <ChoicePanel choice={game.state.pendingChoice} onSubmit={game.choose} />}

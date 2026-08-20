@@ -66,33 +66,33 @@ export function MainMenu({ selectedDeckId, onSelectDeck, onStart, onOpenCampaign
 
       <header className="menu-topbar">
         <div className="brand"><LogoGlyph size={38} /><div><span>HYPERVERSE</span><small>TRADING CARD GAME</small></div></div>
-        <div className="menu-build"><span aria-hidden="true" /> BASE SET ARCHIVE ONLINE</div>
-        <div className="menu-edition">RIFT TABLE <b>26.08</b></div>
+        <div className="menu-build"><span aria-hidden="true" /> ORIGIN + FOUR EMPERORS</div>
+        <div className="menu-edition">BUILD <b>26.08</b></div>
       </header>
 
       <main className="menu-main" id="menu-content">
         <section className="menu-intro" aria-labelledby="menu-title">
           <div>
-            <span className="menu-kicker">SOLO BREACH // LOADOUT SELECT</span>
-            <h1 id="menu-title">Choose your<br /><em>timeline.</em></h1>
-            <p>{DECK_PRESETS.length} tuned decks. {DECK_PRESETS.length} ways to bend the Hyperverse. Select a formation and breach the Rift.</p>
+            <span className="menu-kicker">SOLO MATCH</span>
+            <h1 id="menu-title">Choose your<br /><em>deck.</em></h1>
+            <p>{DECK_PRESETS.length} ready-to-play decks. Pick one to see its cards and game plan.</p>
           </div>
           <div className="menu-mode-stack">
             <button className="campaign-mode-card glass" type="button" onClick={onOpenCampaign}>
               <span className="mode-reticle" aria-hidden="true"><i /></span>
-              <div><small>NEW CAMPAIGN SYSTEM</small><strong>Enter the pack vault</strong><p>Spend Celestial Credits. Open boosters. Build your collection.</p></div>
+              <div><small>CAMPAIGN</small><strong>Open boosters</strong><p>Spend Celestial Credits and build your collection.</p></div>
               <b aria-hidden="true">→</b>
             </button>
             <div className="mode-card glass">
               <span className="mode-reticle" aria-hidden="true"><i /></span>
-              <div><small>ACTIVE OPERATION</small><strong>Solo breach</strong><p>Face the Rift Automaton in a full 250 HP match.</p></div>
+              <div><small>QUICK PLAY</small><strong>Solo match</strong><p>Play a full 250 HP match against the computer.</p></div>
               <b>01</b>
             </div>
           </div>
         </section>
 
         <section className="deck-archive glass" aria-labelledby="archive-title">
-          <header><div><span>LOADOUT ARCHIVE</span><h2 id="archive-title">Battle decks</h2></div><b>{DECK_PRESETS.length}<small> / {DECK_PRESETS.length} READY</small></b></header>
+          <header><div><span>DECK SELECT</span><h2 id="archive-title">Battle decks</h2></div><b>{DECK_PRESETS.length}<small> AVAILABLE</small></b></header>
           <div className="deck-tabs" role="tablist" aria-label="Battle decks" aria-orientation="vertical">
             {DECK_PRESETS.map((deck, index) => {
               const isSelected = deck.id === selectedDeckId;
@@ -119,16 +119,15 @@ export function MainMenu({ selectedDeckId, onSelectDeck, onStart, onOpenCampaign
         </section>
 
         <section className="deck-dossier" id="selected-deck-panel" role="tabpanel" aria-labelledby={`deck-tab-${selectedDeck.id}`}>
-          <div className="dossier-status"><span><i aria-hidden="true" /> ACTIVE LOADOUT</span><b>60 / 60 <small>LEGAL</small></b></div>
+          <div className="dossier-status"><span><i aria-hidden="true" /> SELECTED DECK</span><b>60 / 60 <small>LEGAL</small></b></div>
 
           <div className="dossier-hero">
             <div className="menu-card-fan" aria-label="Featured cards">
               {selectedDeck.featuredCardIds.map((cardId, index) => <FeaturedCard key={cardId} cardId={cardId} position={index} />)}
             </div>
             <div className="dossier-title">
-              <span>{selectedDeck.faction} // {selectedDeck.archetype}</span>
+              <span>{selectedDeck.faction} · {selectedDeck.archetype}</span>
               <h2>{selectedDeck.name}</h2>
-              <blockquote>“{selectedDeck.tagline}”</blockquote>
             </div>
           </div>
 
@@ -142,23 +141,23 @@ export function MainMenu({ selectedDeckId, onSelectDeck, onStart, onOpenCampaign
           </div>
 
           <div className="energy-signature">
-            <span>ENERGY SIGNATURE</span>
+            <span>ENERGY TYPES</span>
             <div>{energyMix.map(([energy, count]) => <MakerEnergyOrb key={energy} energy={energy} count={count} size={31} />)}</div>
           </div>
 
           <div className="game-plan">
-            <span>FIELD DOCTRINE</span>
+            <span>GAME PLAN</span>
             <ol>{selectedDeck.gamePlan.map((step) => <li key={step}>{step}</li>)}</ol>
           </div>
 
           <div className="launch-panel">
-            <div><small>OPPOSING SIGNAL</small><strong>{opponentDeck.name}</strong><span>Rift Automaton loadout</span></div>
-            <button type="button" onClick={onStart}><span>BREACH THE RIFT</span><small>Start solo match</small><b aria-hidden="true">→</b></button>
+            <div><small>OPPONENT</small><strong>{opponentDeck.name}</strong><span>Computer-controlled deck</span></div>
+            <button type="button" onClick={onStart}><span>START MATCH</span><small>Play solo</small><b aria-hidden="true">→</b></button>
           </div>
         </section>
       </main>
 
-      <footer className="menu-footer"><span>60 CARD FORMAT</span><span>250 HP</span><span>SSOT 2026.08.12</span><b>THE RIFT IS LISTENING</b></footer>
+      <footer className="menu-footer"><span>60 CARD FORMAT</span><span>250 HP</span><span>ORIGIN + FOUR EMPERORS</span><b>HYPERVERSE TCG</b></footer>
     </div>
   );
 }

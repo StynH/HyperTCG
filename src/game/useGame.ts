@@ -17,7 +17,7 @@ export function useGame(playerDeckId: string, opponentDeckId: string) {
   const [notice, setNotice] = useState('Choose up to three opening cards to mulligan, or keep all seven.');
   const opponentStep = useCallback(() => setState((current) => runOpponentStep(current)), []);
 
-  const apply = useCallback((result: GameResult, successNotice = 'Action resolved.') => {
+  const apply = useCallback((result: GameResult, successNotice = 'Done.') => {
     if (result.error) {
       setNotice(result.error);
       return false;
@@ -39,12 +39,12 @@ export function useGame(playerDeckId: string, opponentDeckId: string) {
         ? 'Opening hand kept. Your first turn begins.'
         : `Mulligan complete. Replaced ${selectedIds.length} card${selectedIds.length === 1 ? '' : 's'}.`,
     ),
-    playEnergy: (instanceId: string) => apply(playEnergy(state, 0, instanceId)),
-    playUnit: (address: BoardAddress, instanceId: string) => apply(playUnit(state, address, instanceId)),
-    playUtility: (instanceId: string) => apply(playUtility(state, 0, instanceId)),
-    rotate: (address: BoardAddress) => apply(rotateUnit(state, address)),
+    playEnergy: (instanceId: string) => apply(playEnergy(state, 0, instanceId), 'Energy played.'),
+    playUnit: (address: BoardAddress, instanceId: string) => apply(playUnit(state, address, instanceId), 'Unit played.'),
+    playUtility: (instanceId: string) => apply(playUtility(state, 0, instanceId), 'Utility played.'),
+    rotate: (address: BoardAddress) => apply(rotateUnit(state, address), 'Unit rotated.'),
     rotateActionError: (address: BoardAddress) => rotateUnitActionError(state, address),
-    attack: (source: BoardAddress, attackIndex: number, target: BoardAddress | null) => apply(useAttack(state, source, attackIndex, target)),
+    attack: (source: BoardAddress, attackIndex: number, target: BoardAddress | null) => apply(useAttack(state, source, attackIndex, target), 'Attack complete.'),
     attackActionError: (source: BoardAddress, attackIndex: number) => attackActionError(state, source, attackIndex),
     attacksFor: (instanceId: string) => availableAttacks(state, instanceId),
     handActionError: (instanceId: string) => {
@@ -55,10 +55,10 @@ export function useGame(playerDeckId: string, opponentDeckId: string) {
         : playUtilityActionError(state, 0, instanceId);
     },
     abilities: availableActivatedAbilities(state, 0),
-    activateAbility: (sourceInstanceId: string, abilityId: string) => apply(activateAbility(state, 0, sourceInstanceId, abilityId)),
-    advanceConstruction: (instanceId: string) => apply(advanceConstruction(state, 0, instanceId)),
+    activateAbility: (sourceInstanceId: string, abilityId: string) => apply(activateAbility(state, 0, sourceInstanceId, abilityId), 'Ability used.'),
+    advanceConstruction: (instanceId: string) => apply(advanceConstruction(state, 0, instanceId), 'Construction advanced.'),
     advanceConstructionActionError: (instanceId: string) => advanceConstructionActionError(state, 0, instanceId),
-    choose: (selectedIds: readonly string[]) => apply(chooseEffect(state, selectedIds)),
+    choose: (selectedIds: readonly string[]) => apply(chooseEffect(state, selectedIds), 'Choice confirmed.'),
     endTurn: () => apply(endPlayerTurn(state)),
   };
 }

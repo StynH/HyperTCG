@@ -85,7 +85,7 @@ export function VanquishedPile({ cards, playerName, onPreview, onSelect }: {
           >
             <header>
               <div>
-                <span>PUBLIC ZONE</span>
+                <span>DISCARD PILE</span>
                 <h2 id={titleId}>{playerName}'s Vanquished Pile</h2>
               </div>
               <button type="button" autoFocus aria-label="Close Vanquished Pile" onClick={closeDialog}>×</button>

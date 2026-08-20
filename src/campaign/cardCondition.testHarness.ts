@@ -1,4 +1,5 @@
 import { rollCardCondition } from './cardCondition';
+import { calculateSgsGrade, gradeCardWithSgs } from './grading';
 
 interface TestResult { name: string; passed: boolean; error?: string }
 
@@ -41,6 +42,22 @@ export function runCardConditionTests(): TestResult[] {
         didThrow = true;
       }
       expect(didThrow, 'An invalid random value was accepted');
+    }),
+    run('SGS calculates a one-decimal average from hidden condition scores', () => {
+      const grade = calculateSgsGrade({ centering: 8, corners: 9, edges: 9, surface: 9 });
+      expect(grade === 8.8, `Expected an 8.8 SGS grade, received ${grade}`);
+    }),
+    run('SGS certification is stable and does not regrade a card', () => {
+      const card = {
+        instanceId: '12345678-abcd-4000-8000-123456789abc',
+        cardId: 'test-card',
+        condition: { centering: 9.5, corners: 10, edges: 9.7, surface: 9.8 },
+      };
+      const graded = gradeCardWithSgs(card);
+      const gradedAgain = gradeCardWithSgs(graded);
+      expect(graded.grading?.grade === 9.8, `Expected a 9.8 SGS grade, received ${graded.grading?.grade}`);
+      expect(graded.grading?.certificateNumber === 'SGS-12345678ABCD', 'SGS certificate number was not stable');
+      expect(gradedAgain === graded, 'SGS regraded an already certified card');
     }),
   ];
 }

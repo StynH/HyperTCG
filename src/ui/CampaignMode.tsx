@@ -7,6 +7,7 @@ import {
   purchaseBooster, saveCampaignProfile, type CampaignProfile,
 } from '../campaign/profile';
 import { LogoGlyph } from './MakerGraphics';
+import { CampaignCollection } from './CampaignCollection';
 
 interface CampaignModeProps {
   onExit: () => void;
@@ -34,7 +35,7 @@ function PackArt({ booster, isCompact = false }: { booster: BoosterDefinition; i
       <div className="pack-brand"><LogoGlyph size={isCompact ? 24 : 34} /><span>HYPERVERSE</span></div>
       <div className="pack-sigil"><i /><b>{booster.id === 'ORIG' ? 'O' : 'IV'}</b><i /></div>
       <strong>{booster.shortName}</strong>
-      <small>{booster.id} // 10 CARD BOOSTER</small>
+      <small>{booster.id} · 10 CARDS</small>
       <span className="pack-crimp bottom" />
     </div>
   );
@@ -58,7 +59,7 @@ function BoosterProduct({
     <article className={`booster-product set-${booster.id.toLowerCase()}`} style={style}>
       <div className="product-art"><span className="pack-aura" aria-hidden="true" /><PackArt booster={booster} isCompact /></div>
       <div className="product-copy">
-        <span>{booster.id} // BOOSTER SERIES</span>
+        <span>{booster.id} SET</span>
         <h2>{booster.name}</h2>
         <p>{booster.description}</p>
         <dl>
@@ -67,7 +68,7 @@ function BoosterProduct({
           <div><dt>PREMIUM</dt><dd>1</dd></div>
         </dl>
         <button type="button" disabled={!canAfford} onClick={() => onPurchase(booster)}>
-          <span>{canAfford ? 'ACQUIRE BOOSTER' : `NEED ${booster.price - credits} MORE CC`}</span>
+          <span>{canAfford ? 'BUY BOOSTER' : `NEED ${booster.price - credits} MORE CC`}</span>
           <b><CreditMark /> {booster.price}</b>
         </button>
       </div>
@@ -98,15 +99,15 @@ function CurrentCard({
       type="button"
       onClick={onActivate}
       aria-label={isFaceUp
-        ? `${reward.card.name}, ${rarityLabel(reward.rarity)}. ${index === 9 ? 'Finish opening' : 'Secure and draw next card'}`
+        ? `${reward.card.name}, ${rarityLabel(reward.rarity)}. ${index === 9 ? 'Finish opening' : 'Continue to the next card'}`
         : `Flip card ${index + 1} of 10`}
     >
       <span className="opening-card-inner">
         <span className="opening-card-back">
           <i className="card-back-orbit" aria-hidden="true" />
           <LogoGlyph size={72} />
-          <strong>{index === 9 ? 'PREMIUM SIGNAL' : 'HYPERVERSE'}</strong>
-          <small>{index === 9 ? 'RARITY UNKNOWN' : `CARD ${String(index + 1).padStart(2, '0')} // 10`}</small>
+          <strong>{index === 9 ? 'PREMIUM CARD' : 'HYPERVERSE'}</strong>
+          <small>{index === 9 ? 'RARITY HIDDEN' : `CARD ${String(index + 1).padStart(2, '0')} OF 10`}</small>
         </span>
         <span className="opening-card-front">
           <img src={reward.card.image} alt="" />
@@ -157,9 +158,9 @@ function OpeningChamber({
     return (
       <main className="opening-chamber sealed" id="campaign-content" style={style}>
         <div className="opening-radiance" aria-hidden="true"><i /><i /><i /></div>
-        <div className="sealed-copy"><span>PURCHASE AUTHORIZED</span><h1>Your booster<br />has arrived.</h1><p>Break the seal to add all 10 cards to your collection.</p></div>
+        <div className="sealed-copy"><span>BOOSTER PURCHASED</span><h1>Ready to<br />open.</h1><p>Open the pack to add all 10 cards to your collection.</p></div>
         <div className="sealed-pack"><PackArt booster={booster} /><span className="pack-shadow" /></div>
-        <button className="tear-seal" type="button" onClick={() => setHasTornSeal(true)}><span>TEAR THE SEAL</span><small>Open {booster.id} booster</small><b aria-hidden="true">↗</b></button>
+        <button className="tear-seal" type="button" onClick={() => setHasTornSeal(true)}><span>OPEN BOOSTER</span><small>{booster.name}</small><b aria-hidden="true">↗</b></button>
       </main>
     );
   }
@@ -168,13 +169,13 @@ function OpeningChamber({
     return (
       <main className="opening-chamber haul-complete" id="campaign-content" style={style}>
         <div className="completion-burst" aria-hidden="true"><i /><i /><i /></div>
-        <div className="completion-copy"><span>10 SIGNALS SECURED</span><h1>Rift haul<br />complete.</h1><p>Your cards are registered and ready for the campaign collection.</p></div>
+        <div className="completion-copy"><span>ALL 10 CARDS ADDED</span><h1>Booster<br />opened.</h1><p>The cards are now in your collection.</p></div>
         <HaulFan cards={openedBooster.cards} />
         <div className={`premium-summary rarity-${openedBooster.premiumRarity}`}>
-          <span>PREMIUM PULL // {rarityLabel(openedBooster.premiumRarity)}</span>
+          <span>PREMIUM CARD · {rarityLabel(openedBooster.premiumRarity)}</span>
           <strong>{openedBooster.cards[9].card.name}</strong>
         </div>
-        <button className="return-vault" type="button" onClick={onDone}>RETURN TO PACK VAULT <span aria-hidden="true">→</span></button>
+        <button className="return-vault" type="button" onClick={onDone}>BACK TO BOOSTERS <span aria-hidden="true">→</span></button>
       </main>
     );
   }
@@ -188,14 +189,14 @@ function OpeningChamber({
   return (
     <main className={`opening-chamber ritual rarity-${currentReward.rarity} ${isFaceUp ? 'showing-result' : 'awaiting-flip'} ${currentIndex === 9 ? 'premium-turn' : ''}`} id="campaign-content" style={style}>
       <header className="ritual-heading">
-        <div><span>{booster.id} // LIVE PACK BREACH</span><h1>{currentIndex === 9 && !isFaceUp ? 'Premium signal detected.' : isFaceUp ? currentReward.card.name : 'Draw from the Rift.'}</h1></div>
+        <div><span>{booster.name} · CARD {currentIndex + 1} OF 10</span><h1>{currentIndex === 9 && !isFaceUp ? 'Premium card.' : isFaceUp ? currentReward.card.name : 'Flip the next card.'}</h1></div>
         <div className="ritual-counter"><strong>{String(currentIndex + 1).padStart(2, '0')}</strong><span>/ 10</span></div>
       </header>
 
       <section className="ritual-stage" aria-label={`Opening card ${currentIndex + 1} of 10`}>
-        <div className="opened-pack-source" aria-hidden="true"><PackArt booster={booster} isCompact /><span>SEAL BREACHED</span></div>
-        <div className="secured-cards" aria-label={`${currentIndex} cards secured`}>
-          <span>SECURED</span>
+        <div className="opened-pack-source" aria-hidden="true"><PackArt booster={booster} isCompact /><span>OPENED PACK</span></div>
+        <div className="secured-cards" aria-label={`${currentIndex} cards revealed`}>
+          <span>REVEALED</span>
           <div>
             {openedBooster.cards.slice(0, currentIndex).map((reward, index) => (
               <img key={`${reward.card.id}-${index}`} src={reward.card.image} alt="" style={{ '--secured-index': index } as CSSProperties} />
@@ -213,29 +214,29 @@ function OpeningChamber({
             onActivate={() => isFaceUp ? secureCard() : setIsFaceUp(true)}
           />
           <span className={`flip-instruction ${isFaceUp ? 'continue' : ''}`}>
-            {isFaceUp ? (currentIndex === 9 ? 'CLICK CARD TO FINISH' : 'CLICK CARD FOR NEXT') : 'CLICK CARD TO FLIP'} <kbd>↵</kbd>
+            {isFaceUp ? (currentIndex === 9 ? 'CLICK CARD TO FINISH' : 'CLICK CARD FOR NEXT') : 'CLICK CARD TO REVEAL'} <kbd>↵</kbd>
           </span>
         </div>
 
         <aside className={`card-discovery ${isFaceUp ? 'visible' : ''}`} aria-live="polite">
           {isFaceUp ? (
             <>
-              <span>{rarityLabel(currentReward.rarity)} // {booster.id}</span>
+              <span>{rarityLabel(currentReward.rarity)} · {booster.id}</span>
               <h2>{currentReward.card.name}</h2>
               <p>{currentReward.card.subtitle || currentReward.card.type || 'Hyperverse card'}</p>
               <dl><div><dt>SET</dt><dd>{booster.id}</dd></div><div><dt>NUMBER</dt><dd>{String(currentReward.card.number).padStart(3, '0')}</dd></div><div><dt>RARITY</dt><dd>{rarityLabel(currentReward.rarity)}</dd></div></dl>
-              <div className="discovery-control-hint"><span>ONE CONTROL</span><strong>Keep clicking the center card</strong></div>
+              <div className="discovery-control-hint"><span>NEXT STEP</span><strong>Click the center card again</strong></div>
             </>
           ) : (
-            <><span>ENCRYPTED SIGNAL</span><h2>Identity concealed</h2><p>Flip the card at the center of the breach to decode this signal.</p><div className="decoder-lines" aria-hidden="true"><i /><i /><i /><i /></div></>
+            <><span>FACE DOWN</span><h2>Card hidden</h2><p>Click the center card to reveal it.</p><div className="decoder-lines" aria-hidden="true"><i /><i /><i /><i /></div></>
           )}
         </aside>
       </section>
 
-      <footer className="ritual-progress" aria-label={`${currentIndex} of 10 cards secured`}>
-        <span>PACK SEQUENCE</span>
+      <footer className="ritual-progress" aria-label={`${currentIndex} of 10 cards revealed`}>
+        <span>CARDS IN THIS BOOSTER</span>
         <ol>{openedBooster.cards.map((reward, index) => <li key={index} className={`${index < currentIndex ? 'secured' : ''} ${index === currentIndex ? 'current' : ''} rarity-${reward.rarity}`}><span>{String(index + 1).padStart(2, '0')}</span></li>)}</ol>
-        <b>{currentIndex === 9 ? 'PREMIUM SLOT' : `${10 - currentIndex} SIGNALS REMAIN`}</b>
+        <b>{currentIndex === 9 ? 'PREMIUM CARD' : `${10 - currentIndex} CARDS LEFT`}</b>
       </footer>
     </main>
   );
@@ -245,6 +246,7 @@ export function CampaignMode({ onExit }: CampaignModeProps) {
   const [profile, setProfile] = useState(loadCampaignProfile);
   const [activeBooster, setActiveBooster] = useState<BoosterDefinition | null>(null);
   const [openedBooster, setOpenedBooster] = useState<OpenedBooster | null>(null);
+  const [isCollectionOpen, setIsCollectionOpen] = useState(false);
   const stats = useMemo(() => campaignStats(profile), [profile]);
 
   const buyBooster = (booster: BoosterDefinition) => {
@@ -266,39 +268,44 @@ export function CampaignMode({ onExit }: CampaignModeProps) {
     );
   }
 
+  if (isCollectionOpen) {
+    return <CampaignCollection profile={profile} onProfileChange={setProfile} onExit={() => setIsCollectionOpen(false)} />;
+  }
+
   return (
     <div className="campaign-shell">
-      <a className="skip-link" href="#campaign-content">Skip to pack vault</a>
+      <a className="skip-link" href="#campaign-content">Skip to booster shop</a>
       <div className="campaign-cosmos" aria-hidden="true"><span className="vault-orbit one" /><span className="vault-orbit two" /><span className="vault-stars" /></div>
       <header className="campaign-topbar">
         <button className="campaign-back" type="button" onClick={onExit} aria-label="Return to main menu">← <span>MAIN MENU</span></button>
-        <div className="brand"><LogoGlyph size={36} /><div><span>HYPERVERSE</span><small>CAMPAIGN COMMAND</small></div></div>
+        <div className="brand"><LogoGlyph size={36} /><div><span>HYPERVERSE</span><small>CAMPAIGN</small></div></div>
         <div className="credit-balance" aria-label={HAS_UNLIMITED_CELESTIAL_CREDITS ? 'Unlimited Celestial Credits' : `${profile.celestialCredits} Celestial Credits`}><div><small>CELESTIAL CREDITS</small><strong>{HAS_UNLIMITED_CELESTIAL_CREDITS ? '∞' : profile.celestialCredits.toLocaleString()}</strong></div><CreditMark /></div>
       </header>
 
       <main className="campaign-main" id="campaign-content">
         <section className="vault-heading">
-          <div><span className="campaign-kicker">EARTH-ALPHA // LICENSED DISTRIBUTOR</span><h1>Pack<br /><em>vault.</em></h1></div>
-          <p>Recovered cards are registered to your campaign collection the instant a pack is acquired. Every seal contains ten cards.</p>
+          <div><span className="campaign-kicker">BOOSTER SHOP</span><h1>Card<br /><em>packs.</em></h1></div>
+          <p>Buy a booster to add ten cards to your collection.</p>
           <div className="collection-readout glass">
             <div><small>COLLECTION</small><strong>{stats.totalCards}</strong><span>total cards</span></div>
-            <div><small>DISCOVERED</small><strong>{stats.uniqueCards}</strong><span>unique signals</span></div>
+            <div><small>UNIQUE</small><strong>{stats.uniqueCards}</strong><span>unique cards</span></div>
             <div><small>OPENED</small><strong>{profile.packsOpened}</strong><span>boosters</span></div>
           </div>
+          <button className="collection-entry" type="button" onClick={() => setIsCollectionOpen(true)}><span>OPEN COLLECTION</span><small>View cards · Send to SGS</small><b aria-hidden="true">→</b></button>
         </section>
 
         <section className="booster-shelf" aria-labelledby="available-boosters-title">
-          <header><div><span>AUTHORIZED INVENTORY</span><h2 id="available-boosters-title">Available boosters</h2></div><b>02 <small>SERIES ONLINE</small></b></header>
+          <header><div><span>AVAILABLE SETS</span><h2 id="available-boosters-title">Available boosters</h2></div><b>02 <small>SETS</small></b></header>
           <div className="booster-products">
             {BOOSTER_DEFINITIONS.map((booster) => <BoosterProduct key={booster.id} booster={booster} credits={profile.celestialCredits} onPurchase={buyBooster} />)}
           </div>
           <footer className="odds-strip">
-            <span>PREMIUM SLOT ODDS</span>
+            <span>PREMIUM CARD ODDS</span>
             <div><b>84%</b> Rare</div><div><b>15.83%</b> Ultra Rare</div><div><b>0.17%</b> Alternative</div>
           </footer>
         </section>
       </main>
-      <footer className="campaign-footer"><span>CAMPAIGN PROFILE // LOCAL ARCHIVE</span><b>YOUR COLLECTION PERSISTS ON THIS DEVICE</b></footer>
+      <footer className="campaign-footer"><span>SAVED LOCALLY</span><b>YOUR COLLECTION IS STORED ON THIS DEVICE</b></footer>
     </div>
   );
 }

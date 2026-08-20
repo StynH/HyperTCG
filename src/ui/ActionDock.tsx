@@ -42,7 +42,7 @@ export function ActionDock(props: ActionDockProps) {
         : null;
   return (
     <section className="action-dock glass" aria-live="polite">
-      <div className="action-prompt"><ApertureIcon size={24} /><div><small>COMMAND</small><p>{props.pendingAttack !== null ? 'Choose a highlighted opposing Vanguard target.' : props.notice}</p></div></div>
+      <div className="action-prompt"><ApertureIcon size={24} /><div><small>ACTION</small><p>{props.pendingAttack !== null ? 'Choose a highlighted opposing Vanguard target.' : props.notice}</p></div></div>
       <div className="action-options">
         {props.handSelection && selected?.kind === 'unit' && <span className="placement-help">Choose a highlighted Vanguard or Backguard slot</span>}
         {props.handSelection && selected && selected.kind !== 'unit' && (
@@ -71,7 +71,7 @@ export function ActionDock(props: ActionDockProps) {
         ))}
         {(props.handSelection || props.unitSelection || props.utilitySelection || props.pendingAttack !== null) && <button className="cancel-action" type="button" onClick={props.onCancel}>Cancel</button>}
       </div>
-      <button className="end-turn" type="button" disabled={!props.canAct} onClick={props.onEndTurn}><span>End turn</span><small>Pass priority</small><i>→</i></button>
+      <button className="end-turn" type="button" disabled={!props.canAct} onClick={props.onEndTurn}><span>End turn</span><small>Opponent plays next</small><i>→</i></button>
     </section>
   );
 }

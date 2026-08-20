@@ -22,7 +22,7 @@ export function ChoicePanel({ choice, onSubmit }: {
   return (
     <div className="choice-overlay" role="dialog" aria-modal="true" aria-labelledby="choice-title">
       <section className="choice-panel glass">
-        <small>EFFECT RESOLUTION</small>
+        <small>CHOOSE CARDS</small>
         <h2 id="choice-title">{choice.prompt}</h2>
         <p>Choose {choice.min === choice.max ? choice.min : choice.min + '–' + choice.max}{choice.ordered ? ' in resolution order' : ''}.</p>
         <div className="choice-options">
@@ -43,7 +43,7 @@ export function ChoicePanel({ choice, onSubmit }: {
           })}
         </div>
         <button className="choice-confirm" type="button" disabled={!canSubmit} onClick={() => onSubmit(selected)}>
-          {choice.min === 0 && selected.length === 0 ? 'Continue without choosing' : 'Resolve choice'}
+          {choice.min === 0 && selected.length === 0 ? 'Continue without choosing' : 'Confirm choice'}
         </button>
       </section>
     </div>

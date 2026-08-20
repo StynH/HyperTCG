@@ -71,13 +71,13 @@ function RollCheck({ die, value, delay, index, isRevealed }: {
     <article role="listitem" className={`roll-check roll-${die.kind} tone-${outcome.tone} ${isRevealed ? 'is-locked' : 'is-casting'}`} style={{ '--die-delay': `${delay}ms` } as React.CSSProperties}>
       <header>
         <span className="roll-check-number">0{index + 1}</span>
-        <div><small>CHECK</small><strong>{DIE_LABELS[die.kind]}</strong></div>
+        <div><small>ROLL</small><strong>{DIE_LABELS[die.kind]}</strong></div>
         <b>D{die.sides}</b>
       </header>
       <div className="roll-rule">{rollRule(die)}</div>
       <div className="roll-face">
         <span className="roll-die-emblem" aria-hidden="true">D{die.sides}</span>
-        <div><small>{isRevealed ? 'ROLLED' : 'CASTING'}</small><strong>{value}</strong></div>
+        <div><small>{isRevealed ? 'ROLLED' : 'ROLLING'}</small><strong>{value}</strong></div>
         {die.kind === 'defense' && die.target !== undefined && (
           <span className="defense-target"><small>DEF</small>{die.target}</span>
         )}
@@ -212,7 +212,7 @@ export function DiceCast({ roll, onResolved, onDismiss }: { roll: RollResult | n
     ? 'VANQUISHED'
     : visible.roll.damage > 0
       ? `${visible.roll.damage} DAMAGE`
-      : isCombatRoll ? 'NO DAMAGE' : 'EFFECT RESOLVED';
+      : isCombatRoll ? 'NO DAMAGE' : 'EFFECT COMPLETE';
   const outcomeTone = defenderVanquished
     ? 'vanquish'
     : visible.roll.damage > 0 ? 'damage' : isCombatRoll ? 'blocked' : 'effect';
@@ -231,11 +231,11 @@ export function DiceCast({ roll, onResolved, onDismiss }: { roll: RollResult | n
       <section className="dice-cast-panel" ref={panelRef} tabIndex={-1}>
         <header className="dice-cast-heading">
           <div>
-            <span className="dice-cast-kicker">{visible.roll.combat ? 'COMBAT RESOLUTION' : 'EFFECT RESOLUTION'}</span>
-            <h2 id="dice-cast-title">{isRevealed ? 'Resolution complete' : 'Resolving the attack'}</h2>
-            <p>{visible.roll.rolls.length} {visible.roll.rolls.length === 1 ? 'check' : 'checks'} · Read from left to right</p>
+            <span className="dice-cast-kicker">{visible.roll.combat ? 'COMBAT ROLLS' : 'CARD EFFECT'}</span>
+            <h2 id="dice-cast-title">{isRevealed ? 'Rolls complete' : 'Rolling dice'}</h2>
+            <p>{visible.roll.rolls.length} {visible.roll.rolls.length === 1 ? 'roll' : 'rolls'} · Read from left to right</p>
           </div>
-          <span className={`resolution-status ${isRevealed ? 'locked' : ''}`}><i aria-hidden="true" />{isRevealed ? 'LOCKED' : 'ROLLING'}</span>
+          <span className={`resolution-status ${isRevealed ? 'locked' : ''}`}><i aria-hidden="true" />{isRevealed ? 'DONE' : 'ROLLING'}</span>
         </header>
         {visible.roll.combat && (
           <section className="combat-matchup" aria-label={`${visible.roll.combat.attacker.name} attacks ${visible.roll.combat.defender.name} with ${visible.roll.combat.attackName}`}>
@@ -251,8 +251,8 @@ export function DiceCast({ roll, onResolved, onDismiss }: { roll: RollResult | n
         </div>
         <div className={`combat-outcome outcome-${outcomeTone}`} id="dice-cast-result" aria-live="polite">
           <span className="outcome-mark" aria-hidden="true">{isRevealed ? (defenderVanquished ? '☠' : visible.roll.damage > 0 ? '−' : isCombatRoll ? '0' : '◆') : '…'}</span>
-          <div><small>{isRevealed ? (defenderVanquished ? 'UNIT VANQUISHED' : 'FINAL OUTCOME') : 'RESOLVING'}</small><strong>{isRevealed ? outcomeLabel : 'CHECKS IN PROGRESS'}</strong></div>
-          <p>{isRevealed ? outcomeSummary : 'Effect, Critical, and Defense rules resolve in sequence.'}</p>
+          <div><small>{isRevealed ? (defenderVanquished ? 'UNIT VANQUISHED' : 'RESULT') : 'ROLLING'}</small><strong>{isRevealed ? outcomeLabel : 'ROLLS IN PROGRESS'}</strong></div>
+          <p>{isRevealed ? outcomeSummary : 'The rolls are shown in the order they apply.'}</p>
         </div>
         {isRevealed && <div className="dice-cast-actions"><button className="dice-cast-continue" type="button" autoFocus onClick={dismiss}>Continue battle <span aria-hidden="true">→</span></button><small>ESC</small></div>}
       </section>

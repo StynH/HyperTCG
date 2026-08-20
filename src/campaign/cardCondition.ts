@@ -1,3 +1,5 @@
+import type { SgsGradingRecord } from './grading';
+
 export interface CardCondition {
   centering: number;
   corners: number;
@@ -9,6 +11,7 @@ export interface OwnedCampaignCard {
   instanceId: string;
   cardId: string;
   condition: CardCondition;
+  grading?: SgsGradingRecord;
 }
 
 function rollOneDecimal(minimum: number, maximum: number, random: () => number): number {
