@@ -11,6 +11,7 @@ export interface OwnedCampaignCard {
   instanceId: string;
   cardId: string;
   condition: CardCondition;
+  stamped?: boolean;
   grading?: SgsGradingRecord;
 }
 
@@ -35,6 +36,7 @@ function createInstanceId(): string {
 
 export function createOwnedCampaignCard(
   cardId: string,
+  stamped = false,
   random: () => number = Math.random,
   createId: () => string = createInstanceId,
 ): OwnedCampaignCard {
@@ -42,5 +44,6 @@ export function createOwnedCampaignCard(
     instanceId: createId(),
     cardId,
     condition: rollCardCondition(random),
+    ...(stamped ? { stamped: true } : {}),
   };
 }

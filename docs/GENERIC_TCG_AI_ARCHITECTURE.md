@@ -1,6 +1,6 @@
 # Hyperverse TCG — Generic, Believable AI Architecture
 
-**Status:** implementation in progress — canonical actions, two-sided belief sampling, generic profiles, mulligans, shallow search, and difficulty controls are playable
+**Status:** implementation in progress — canonical actions, fair observations, generic profiles, tactical safety, worker-hosted ISMCTS, mulligans, and difficulty controls are playable
 **Date:** 2026-08-20  
 **Scope:** solo opponent, automated playtesting, and a reusable decision engine for arbitrary legal decks  
 **Repository sources of truth:** [rules](./Hyperverse_TCG_Rules_SSOT_2026-08-12.md), [effect scripting](./EFFECT_SCRIPTS.md), [engine](../src/game/engine.ts), [runtime types](../src/game/types.ts), and [effect vocabulary](../src/game/effectTypes.ts)
@@ -102,12 +102,14 @@ The legacy functions remain temporarily for regression coverage, but player-faci
 
 ### Remaining implementation gaps
 
-Canonical actions, mulligans, AI-owned choices, reactions, Effect Die actions, legal targets, fair known-list sampling, generic deck profiles, deterministic traces, and selectable difficulty budgets are implemented. The remaining gaps are:
+Canonical actions, mulligans, AI-owned choices, reactions, Effect Die actions, legal targets, pre-worker observation redaction, fair known-list sampling, generic deck profiles, deterministic traces, robust immediate-win detection, progressive widening, UCT availability accounting, guided stochastic rollouts, selectable difficulty budgets, and cancellable worker execution are implemented. The remaining gaps are:
 
 - `GameState` still mixes authoritative rules with presentation fields such as `isOpponentActing` and the now-legacy `opponentStage`.
 - Belief state is reconstructed per decision; persistent memory for temporarily revealed cards is not yet modeled.
-- The current bounded minimax scaffold is not yet full information-set MCTS with availability counts, tree reuse, or synergy-guided rollouts.
-- Search still runs synchronously on the UI thread and simulations still construct presentation logs; a cancellable worker and headless simulation mode remain necessary for larger budgets.
+- The current open-loop information-set tree is rebuilt for every atomic action; cross-decision tree reuse and persistent belief particles are not yet modeled.
+- Candidate ordering and rollouts are generically heuristic, but the planned operation-level synergy graph and dynamic strategic weights are not yet implemented.
+- Search runs in a cancellable Web Worker, but simulations still construct presentation logs; a headless simulation mode is needed before substantially larger budgets.
+- Tournament tooling, latency distributions, matchup calibration, and statistically demonstrated difficulty ordering are not yet implemented.
 - The old fixed opponent functions remain in `engine.ts` until tournament parity and all calling tests are migrated.
 - Several rules remain explicitly undecided in the SSOT, especially full reaction priority and some forced movement/equipment cases. Search deliberately reaches these edge cases more often.
 
@@ -190,9 +192,10 @@ The AI must depend on a narrow rules interface. It must not reach into React, mu
 ```mermaid
 flowchart LR
     UI["React match UI"] --> C["AI turn controller"]
+    C --> W["Cancellable search worker"]
     C --> O["Fair observation"]
-    C --> D["Deck profile"]
-    C --> S["Information-set search"]
+    W --> D["Deck profile"]
+    W --> S["Information-set search"]
     O --> B["Belief sampler"]
     B --> S
     D --> P["Candidate policies"]
@@ -202,8 +205,9 @@ flowchart LR
     R --> G["Authoritative game engine"]
     G --> J["Generic effect runtime + JSON scripts"]
     S --> H["Difficulty + persona selector"]
-    H --> C
-    C -->|"one chosen action"| G
+    H --> W
+    W -->|"one chosen action"| C
+    C -->|"validate and execute"| G
     G --> UI
 ```
 
@@ -550,24 +554,18 @@ Do not silently rubber-band the default match. If adaptive difficulty is desired
 ```text
 src/game/
   actions.ts                  canonical GameAction, listLegalActions, applyAction
-  observation.ts              masking and knowledge policy
-  simulation.ts               seeded headless rules adapter
   ai/
     types.ts                  profiles, traces, search contracts
-    controller.ts             one-decision orchestration and cancellation
-    belief.ts                 hidden-state particles/sampling
+    belief.ts                 observation redaction and hidden-state sampling
     deckProfile.ts            static capability and synergy compilation
     candidates.ts             generic portfolio proposals and ordering
-    evaluate.ts               state/terminal evaluation
-    tactical.ts               bounded lethal and loss-prevention solver
+    evaluation.ts             state/terminal evaluation
+    tactical.ts               bounded immediate-win solver
     ismcts.ts                 search tree, widening, rollout, backup
-    difficulty.ts             budget, temperature, regret, persona
-    worker.ts                 off-main-thread entry point
-  aiTests/
-    actionParity.testHarness.ts
-    informationLeak.testHarness.ts
-    tacticalScenarios.testHarness.ts
-    deckTournament.testHarness.ts
+    difficulty.ts             budget, temperature, and regret
+    search.worker.ts          off-main-thread entry point
+    workerProtocol.ts         serialized request/response contract
+    ai.testHarness.ts         fairness, tactics, trace, and mulligan regressions
 ```
 
 Names may change during implementation, but responsibilities should remain cohesive. Avoid an `AIManager` god object.
@@ -606,7 +604,7 @@ Search must never advance live match RNG. Tests must reproduce a decision from t
 
 ### 11.5 Concurrency and cancellation
 
-Search should run in a Web Worker so React animations and input remain responsive. The worker receives a serialized observation, deck profiles, public history, profile, and seed—not the live state object. Every request carries an observation/action sequence. The UI discards a result if the match changed, restarted, ended, or left the screen before completion.
+Search runs in a Web Worker so React animations and input remain responsive. The worker receives a serialized redacted state, public deck lists, difficulty profile, and search seed—not the live hidden state. Every request carries an incrementing request ID and the controller additionally guards the response with the exact state object that produced it. Restarting or leaving the match terminates the worker; stale results are discarded, and the chosen action is revalidated against live state before execution.
 
 ## 12. Implementation roadmap
 
@@ -651,6 +649,8 @@ Each milestone leaves the game in a testable state. Do not begin neural training
 **Exit:** all decks mulligan, develop, choose targets, use abilities, attack, react, and end turns coherently; it decisively beats the legacy bot across both seats.
 
 ### Milestone 4 — belief-aware ISMCTS and candidate portfolios
+
+**Current:** core search, worker execution, cancellation, and deterministic trace accounting are implemented; synergy graphs, tree reuse, tournament proof, and performance optimization remain.
 
 - Add the information-set tree, progressive widening, availability counts, and guided stochastic rollouts.
 - Add synergy graph and dynamic strategic weights.

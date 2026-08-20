@@ -11,6 +11,7 @@ import {
 import { getCard } from '../data/catalog';
 import type { CardDefinition } from '../game/types';
 import { LogoGlyph } from './MakerGraphics';
+import { CardDisplay } from './SetStamp';
 
 interface CampaignCollectionProps {
   profile: CampaignProfile;
@@ -129,7 +130,10 @@ function SgsSlab({ ownedCard }: { ownedCard: OwnedCampaignCard }) {
         <div className="slab-identity"><strong>{card.name}</strong><span>{card.setId} · #{String(card.number).padStart(3, '0')} · HYPERVERSE TCG</span><small>CERT {grading.certificateNumber}</small></div>
         <div className="slab-grade"><small>GRADE</small><strong>{grading.grade.toFixed(1)}</strong><span>{grading.grade >= 9.5 ? 'GEM MINT' : grading.grade >= 9 ? 'MINT' : 'NEAR MINT'}</span></div>
       </div>
-      <div className="slab-card-well"><img src={card.image} alt={card.name} /><i className="slab-reflection" aria-hidden="true" /></div>
+      <div className="slab-card-well">
+        <CardDisplay image={card.image} alt={card.name} setId={card.setId} isStamped={ownedCard.stamped} className="slab-card-display" />
+        <i className="slab-reflection" aria-hidden="true" />
+      </div>
       <i className="slab-prismatic" aria-hidden="true" />
       <figcaption><span>STYN'S GRADING SERVICE</span><b>SEALED · TAMPER EVIDENT</b></figcaption>
     </figure>
@@ -193,7 +197,7 @@ function CollectionCard({
     <article className={`collection-card ${ownedCard.grading ? 'graded' : 'raw'}`}>
       <div className="collection-card-art">
         <div className="collection-card-tags"><span>{setId}</span><span data-rarity={rarity}>{RARITY_LABELS[rarity]}</span></div>
-        <img src={card.image} alt={card.name} />
+        <CardDisplay image={card.image} alt={card.name} setId={setId} isStamped={ownedCard.stamped} className="collection-card-display" />
         {ownedCard.grading && <span className="collection-grade-badge"><SgsMark /><b>{ownedCard.grading.grade.toFixed(1)}</b></span>}
       </div>
       <div className="collection-card-copy">

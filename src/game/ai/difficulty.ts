@@ -15,6 +15,7 @@ export const AI_DIFFICULTIES: readonly AiDifficultyDefinition[] = [
     settings: {
       beliefSamples: 1,
       chanceSamples: 1,
+      iterations: 40,
       searchDepth: 2,
       candidateLimit: 10,
       regretLimit: 45,
@@ -28,6 +29,7 @@ export const AI_DIFFICULTIES: readonly AiDifficultyDefinition[] = [
     settings: {
       beliefSamples: 2,
       chanceSamples: 2,
+      iterations: 120,
       searchDepth: 3,
       candidateLimit: 14,
       regretLimit: 12,
@@ -41,6 +43,7 @@ export const AI_DIFFICULTIES: readonly AiDifficultyDefinition[] = [
     settings: {
       beliefSamples: 3,
       chanceSamples: 3,
+      iterations: 320,
       searchDepth: 4,
       candidateLimit: 18,
       regretLimit: 0,

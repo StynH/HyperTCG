@@ -29,6 +29,7 @@ export interface DeckProfile {
 export interface AiSearchSettings {
   beliefSamples: number;
   chanceSamples: number;
+  iterations: number;
   searchDepth: number;
   candidateLimit: number;
   regretLimit: number;

@@ -1,7 +1,7 @@
 import { actionKey } from '../actions';
 import { addTestEnergy, addTestUnit, createCleanTestState, testInstanceId } from '../testing/gameFixture';
 import type { GameState } from '../types';
-import { sampleKnownDeckState } from './belief';
+import { createKnownDeckObservation, sampleKnownDeckState } from './belief';
 import { compileDeckProfile } from './deckProfile';
 import { AI_DIFFICULTIES } from './difficulty';
 import {
@@ -104,6 +104,19 @@ export function runAiSelfTests(): TestResult[] {
       expect(first.players[1].deck.every(({ instanceId }) => instanceId.startsWith('belief-1-')),
         'AI search retained its real future deck order');
     }),
+    run('redacts hidden identities before state crosses the worker boundary', () => {
+      const state = hiddenDecisionState();
+      const observation = createKnownDeckObservation(state, 1, PLAYER_LIST, AI_LIST);
+      expect(observation.players[0].hand.every(({ instanceId }) => instanceId.startsWith('observation-0-')),
+        'Worker observation retained a live opponent hand identifier');
+      expect(observation.players[0].hand.every(({ cardId }) => cardId === PLAYER_LIST[0][0]),
+        'Worker observation retained an opponent hand card identity');
+      expect(observation.players[0].deck.every(({ instanceId }) => instanceId.startsWith('observation-0-')),
+        'Worker observation retained the real opponent deck order');
+      expect(observation.players[1].deck.every(({ instanceId }) => instanceId.startsWith('observation-1-')),
+        'Worker observation retained the AI future deck order');
+      expect(state.players[0].hand[0].instanceId === 'hidden-hand-0', 'Observation redaction mutated live state');
+    }),
     run('preserves a hand that a public continuous effect reveals', () => {
       const state = hiddenDecisionState();
       addTestUnit(state, 1, 'backguard', 0, '012-xehanort');
@@ -128,6 +141,52 @@ export function runAiSelfTests(): TestResult[] {
       expect(actionKey(first.action) === actionKey(second.action), 'Strategic search read the real hidden hand');
       expect(first.simulations > 0 && first.candidates.every(({ variance }) => variance >= 0),
         'Strategic decision trace omitted its simulation statistics');
+      expect(JSON.stringify(first.candidates) === JSON.stringify(second.candidates),
+        'Seeded information-set search was not reproducible');
+      expect(first.candidates.every(({ visits, availability }) => visits > 0 && availability >= visits),
+        'Information-set search emitted invalid visit or availability statistics');
+      expect(first.candidates.reduce((total, { visits }) => total + visits, 0) === first.simulations,
+        'Root candidate visits do not account for the deterministic iteration budget');
+    }),
+    run('takes an immediate forced win before statistical search', () => {
+      const state = createCleanTestState();
+      state.activePlayer = 1;
+      state.isOpponentActing = true;
+      state.pendingChoice = {
+        id: 'forced-victory',
+        player: 1,
+        prompt: 'Complete the victory effect.',
+        min: 1,
+        max: 1,
+        ordered: false,
+        options: [{ id: 'victory', label: 'Win' }],
+        store: 'selection',
+        continuation: {
+          actor: 1,
+          sourceInstanceId: '',
+          vars: {},
+          frames: [{
+            effects: [{ op: 'win' }],
+            index: 0,
+            actor: 1,
+            sourceId: '',
+          }],
+        },
+      };
+      const decision = chooseStrategicOpponentAction(state, {
+        knownPlayerDeck: PLAYER_LIST,
+        aiDeck: AI_LIST,
+        difficulty: 'veteran',
+      }, seededRandom(44));
+      expect(decision?.action.kind === 'resolve-choice', 'Tactical guard missed a forced winning choice');
+      expect(decision.candidates.length === 1 && decision.candidates[0].meanValue === 1_000_000,
+        'Forced win was sent through noisy statistical scoring');
+      const result = runStrategicOpponentStep(state, {
+        knownPlayerDeck: PLAYER_LIST,
+        aiDeck: AI_LIST,
+        difficulty: 'veteran',
+      }, seededRandom(44));
+      expect(result.winner === 1, 'Opponent did not execute the forced win');
     }),
     run('evaluates and completes the opponent opening mulligan', () => {
       const state = createCleanTestState();
@@ -202,6 +261,7 @@ export function runAiSelfTests(): TestResult[] {
         const harder = AI_DIFFICULTIES[index].settings;
         expect(harder.beliefSamples >= easier.beliefSamples, 'Harder AI uses fewer belief samples');
         expect(harder.chanceSamples >= easier.chanceSamples, 'Harder AI uses fewer chance samples');
+        expect(harder.iterations >= easier.iterations, 'Harder AI uses fewer Monte Carlo iterations');
         expect(harder.searchDepth >= easier.searchDepth, 'Harder AI searches less deeply');
         expect(harder.candidateLimit >= easier.candidateLimit, 'Harder AI considers fewer candidates');
         expect(harder.regretLimit <= easier.regretLimit, 'Harder AI allows larger mistakes');

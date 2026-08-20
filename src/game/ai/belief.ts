@@ -62,6 +62,43 @@ function remainingDeckPool(
   return [...remaining].flatMap(([cardId, count]) => Array.from({ length: count }, () => cardId));
 }
 
+/** Produces the serializable state boundary sent to search code. Hidden cards keep
+ * their zone counts and ownership, but neither their live identity nor card ID. */
+export function createKnownDeckObservation(
+  state: GameState,
+  viewer: PlayerId,
+  knownOpponentDeck: readonly DeckListEntry[],
+  knownViewerDeck: readonly DeckListEntry[],
+): GameState {
+  const observation = structuredClone(state);
+  for (const [subject, knownDeck] of [
+    [otherPlayer(viewer), knownOpponentDeck],
+    [viewer, knownViewerDeck],
+  ] as const) {
+    const hidden = hiddenCardIds(observation, viewer, subject);
+    const placeholderCardId = knownDeck[0]?.[0];
+    if (hidden.size && !placeholderCardId) {
+      throw new Error('Cannot redact a hidden state with an empty known deck list.');
+    }
+    let observationIndex = 0;
+    const redact = (card: CardInstance): CardInstance => {
+      if (!hidden.has(card.instanceId)) return card;
+      const redacted: CardInstance = {
+        instanceId: `observation-${subject}-${observationIndex}`,
+        cardId: placeholderCardId,
+        owner: card.owner ?? subject,
+        isFaceDown: card.isFaceDown,
+      };
+      observationIndex += 1;
+      return redacted;
+    };
+    observation.players[subject].hand = observation.players[subject].hand.map(redact);
+    observation.players[subject].deck = observation.players[subject].deck.map(redact);
+    observation.players[subject].vanquished = observation.players[subject].vanquished.map(redact);
+  }
+  return observation;
+}
+
 export function sampleKnownDeckState(
   state: GameState,
   viewer: PlayerId,

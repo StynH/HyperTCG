@@ -72,6 +72,7 @@ function isValidOwnedCard(value: unknown): value is OwnedCampaignCard {
     && typeof card.cardId === 'string'
     && card.cardId.length > 0
     && isValidCondition(card.condition)
+    && (card.stamped === undefined || typeof card.stamped === 'boolean')
     && (card.grading === undefined || isValidGradingRecord(card.grading));
 }
 
@@ -178,7 +179,7 @@ export function purchaseBooster(
   for (const { card } of booster.cards) collection[card.id] = (collection[card.id] ?? 0) + 1;
   const ownedCards = [
     ...profile.ownedCards,
-    ...booster.cards.map(({ card }) => createOwnedCampaignCard(card.id)),
+    ...booster.cards.map(({ card, stamped }) => createOwnedCampaignCard(card.id, stamped)),
   ];
   return {
     ...profile,

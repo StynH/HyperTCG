@@ -50,7 +50,9 @@ export function GameApp({ playerDeckId, opponentDeckId, aiDifficulty, onExit }: 
   const gameState = game.state;
   const { opponentStep } = game;
   useEffect(() => {
-    const isAiDecision = gameState.isOpponentActing || gameState.pendingChoice?.player === 1;
+    const isAiDecision = gameState.isOpponentActing
+      || gameState.pendingChoice?.player === 1
+      || gameState.pendingMulligan?.player === 1;
     if (!isAiDecision || gameState.winner !== null || gameState.pendingChoice?.player === 0) return;
     const overlayPending = gameState.lastRoll !== null && gameState.lastRoll.sequence !== dismissedSeq;
     if (overlayPending) return;
@@ -178,9 +180,10 @@ export function GameApp({ playerDeckId, opponentDeckId, aiDifficulty, onExit }: 
   const topPrompt = useMemo(() => {
     if (game.state.winner !== null) return game.state.winner === 0 ? 'YOU WIN' : 'YOU LOSE';
     if (game.state.pendingMulligan) return 'OPENING HAND';
+    if (game.aiThinking) return 'OPPONENT THINKING';
     if (game.state.isOpponentActing) return 'OPPONENT TURN';
     return 'YOUR TURN';
-  }, [game.state.isOpponentActing, game.state.pendingMulligan, game.state.winner]);
+  }, [game.aiThinking, game.state.isOpponentActing, game.state.pendingMulligan, game.state.winner]);
 
   return (
     <div className="app-shell">

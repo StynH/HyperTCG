@@ -17,7 +17,10 @@ export interface BoosterDefinition {
 export interface BoosterCard {
   card: CardDefinition;
   rarity: BoosterRarity;
+  stamped: boolean;
 }
+
+const STAMP_CHANCE = 0.25;
 
 export interface OpenedBooster {
   setId: BoosterSetId;
@@ -109,14 +112,15 @@ export function openBooster(setId: BoosterSetId, random: () => number = Math.ran
   const commons = drawDistinct(getPool(setId, 'common'), 6, random);
   const uncommons = drawDistinct(getPool(setId, 'uncommon'), 3, random);
   const premium = drawDistinct(getPool(setId, premiumRarity), 1, random)[0];
+  const premiumStamped = random() < STAMP_CHANCE;
 
   return {
     setId,
     premiumRarity,
     cards: [
-      ...commons.map((card) => ({ card, rarity: 'common' as const })),
-      ...uncommons.map((card) => ({ card, rarity: 'uncommon' as const })),
-      { card: premium, rarity: premiumRarity },
+      ...commons.map((card) => ({ card, rarity: 'common' as const, stamped: false })),
+      ...uncommons.map((card) => ({ card, rarity: 'uncommon' as const, stamped: false })),
+      { card: premium, rarity: premiumRarity, stamped: premiumStamped },
     ],
   };
 }

@@ -8,6 +8,7 @@ import {
 } from '../campaign/profile';
 import { LogoGlyph } from './MakerGraphics';
 import { CampaignCollection } from './CampaignCollection';
+import { CardDisplay, SET_LOGOS } from './SetStamp';
 
 interface CampaignModeProps {
   onExit: () => void;
@@ -33,7 +34,13 @@ function PackArt({ booster, isCompact = false }: { booster: BoosterDefinition; i
     <div className={`foil-pack ${isCompact ? 'compact' : ''} set-${booster.id.toLowerCase()}`} style={style} aria-hidden="true">
       <span className="pack-crimp top" />
       <div className="pack-brand"><LogoGlyph size={isCompact ? 24 : 34} /><span>HYPERVERSE</span></div>
-      <div className="pack-sigil"><i /><b>{booster.id === 'ORIG' ? 'O' : 'IV'}</b><i /></div>
+      <div className="pack-sigil">
+        <i />
+        {SET_LOGOS[booster.id]
+          ? <img className="pack-set-logo" src={SET_LOGOS[booster.id]} alt="" />
+          : <b>{booster.id === 'ORIG' ? 'O' : 'IV'}</b>}
+        <i />
+      </div>
       <strong>{booster.shortName}</strong>
       <small>{booster.id} · 10 CARDS</small>
       <span className="pack-crimp bottom" />
@@ -109,10 +116,15 @@ function CurrentCard({
           <strong>{index === 9 ? 'PREMIUM CARD' : 'HYPERVERSE'}</strong>
           <small>{index === 9 ? 'RARITY HIDDEN' : `CARD ${String(index + 1).padStart(2, '0')} OF 10`}</small>
         </span>
-        <span className="opening-card-front">
-          <img src={reward.card.image} alt="" />
+        <CardDisplay
+          image={reward.card.image}
+          alt=""
+          setId={reward.card.setId}
+          isStamped={reward.stamped}
+          className="opening-card-front"
+        >
           <i className="card-foil-sweep" aria-hidden="true" />
-        </span>
+        </CardDisplay>
       </span>
     </button>
   );
@@ -129,7 +141,17 @@ function HaulFan({ cards }: { cards: OpenedBooster['cards'] }) {
           '--fan-rotation': `${(index - 4.5) * 3.4}deg`,
           '--fan-order': index + 1,
         } as CSSProperties;
-        return <img key={`${reward.card.id}-${index}`} src={reward.card.image} alt={`${reward.card.name}, ${rarityLabel(reward.rarity)}`} style={style} />;
+        return (
+          <CardDisplay
+            key={`${reward.card.id}-${index}`}
+            image={reward.card.image}
+            alt={`${reward.card.name}, ${rarityLabel(reward.rarity)}`}
+            setId={reward.card.setId}
+            isStamped={reward.stamped}
+            className="haul-card"
+            style={style}
+          />
+        );
       })}
     </div>
   );
@@ -199,7 +221,15 @@ function OpeningChamber({
           <span>REVEALED</span>
           <div>
             {openedBooster.cards.slice(0, currentIndex).map((reward, index) => (
-              <img key={`${reward.card.id}-${index}`} src={reward.card.image} alt="" style={{ '--secured-index': index } as CSSProperties} />
+              <CardDisplay
+                key={`${reward.card.id}-${index}`}
+                image={reward.card.image}
+                alt=""
+                setId={reward.card.setId}
+                isStamped={reward.stamped}
+                className="secured-card"
+                style={{ '--secured-index': index } as CSSProperties}
+              />
             ))}
           </div>
           <strong>{currentIndex}<small> / 10</small></strong>
