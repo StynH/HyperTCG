@@ -10,6 +10,7 @@ interface MainMenuProps {
   selectedDeckId: string;
   onSelectDeck: (deckId: string) => void;
   onStart: () => void;
+  onOpenCampaign: () => void;
 }
 
 function FeaturedCard({ cardId, position }: { cardId: string; position: number }) {
@@ -34,7 +35,7 @@ function Complexity({ value }: { value: 1 | 2 | 3 }) {
   );
 }
 
-export function MainMenu({ selectedDeckId, onSelectDeck, onStart }: MainMenuProps) {
+export function MainMenu({ selectedDeckId, onSelectDeck, onStart, onOpenCampaign }: MainMenuProps) {
   const selectedDeck = getDeckPreset(selectedDeckId);
   const opponentDeck = getDeckPreset(getOpponentDeckId(selectedDeckId));
   const energyCounts = getDeckEnergyCounts(selectedDeck);
@@ -76,10 +77,17 @@ export function MainMenu({ selectedDeckId, onSelectDeck, onStart }: MainMenuProp
             <h1 id="menu-title">Choose your<br /><em>timeline.</em></h1>
             <p>{DECK_PRESETS.length} tuned decks. {DECK_PRESETS.length} ways to bend the Hyperverse. Select a formation and breach the Rift.</p>
           </div>
-          <div className="mode-card glass">
-            <span className="mode-reticle" aria-hidden="true"><i /></span>
-            <div><small>ACTIVE OPERATION</small><strong>Solo breach</strong><p>Face the Rift Automaton in a full 250 HP match.</p></div>
-            <b>01</b>
+          <div className="menu-mode-stack">
+            <button className="campaign-mode-card glass" type="button" onClick={onOpenCampaign}>
+              <span className="mode-reticle" aria-hidden="true"><i /></span>
+              <div><small>NEW CAMPAIGN SYSTEM</small><strong>Enter the pack vault</strong><p>Spend Celestial Credits. Open boosters. Build your collection.</p></div>
+              <b aria-hidden="true">→</b>
+            </button>
+            <div className="mode-card glass">
+              <span className="mode-reticle" aria-hidden="true"><i /></span>
+              <div><small>ACTIVE OPERATION</small><strong>Solo breach</strong><p>Face the Rift Automaton in a full 250 HP match.</p></div>
+              <b>01</b>
+            </div>
           </div>
         </section>
 
