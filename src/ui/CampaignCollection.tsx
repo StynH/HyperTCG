@@ -80,6 +80,22 @@ function SgsMark() {
   return <span className="sgs-mark" aria-hidden="true"><b>SGS</b><small>GRADED</small></span>;
 }
 
+function getSgsGradeName(ownedCard: OwnedCampaignCard): string {
+  const grade = ownedCard.grading!.grade;
+  const isPerfect = Object.values(ownedCard.condition).every((score) => score === 10);
+  if (isPerfect) return 'PERFECT';
+  if (grade >= 9.9) return 'PRISTINE';
+  if (grade >= 9.5) return 'GEM MINT';
+  if (grade >= 9) return 'MINT';
+  return 'NEAR MINT';
+}
+
+function getSgsLabelTier(ownedCard: OwnedCampaignCard): 'black' | 'gold' | 'silver' {
+  if (Object.values(ownedCard.condition).every((score) => score === 10)) return 'black';
+  if (ownedCard.grading!.grade >= 9.5) return 'gold';
+  return 'silver';
+}
+
 function clearSlabTilt(slab: HTMLElement) {
   slab.style.removeProperty('--slab-rotate-x');
   slab.style.removeProperty('--slab-rotate-y');
@@ -90,6 +106,7 @@ function clearSlabTilt(slab: HTMLElement) {
 function SgsSlab({ ownedCard }: { ownedCard: OwnedCampaignCard }) {
   const card = getCard(ownedCard.cardId);
   const grading = ownedCard.grading!;
+  const rarity = getCollectionRarity(card);
   const slabRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -125,10 +142,24 @@ function SgsSlab({ ownedCard }: { ownedCard: OwnedCampaignCard }) {
       <span className="slab-edge slab-edge-top" aria-hidden="true" /><span className="slab-edge slab-edge-bottom" aria-hidden="true" />
       <span className="slab-screw screw-one" aria-hidden="true" /><span className="slab-screw screw-two" aria-hidden="true" />
       <span className="slab-screw screw-three" aria-hidden="true" /><span className="slab-screw screw-four" aria-hidden="true" />
-      <div className="slab-label">
-        <SgsMark />
-        <div className="slab-identity"><strong>{card.name}</strong><span>{card.setId} · #{String(card.number).padStart(3, '0')} · HYPERVERSE TCG</span><small>CERT {grading.certificateNumber}</small></div>
-        <div className="slab-grade"><small>GRADE</small><strong>{grading.grade.toFixed(1)}</strong><span>{grading.grade >= 9.5 ? 'GEM MINT' : grading.grade >= 9 ? 'MINT' : 'NEAR MINT'}</span></div>
+      <div className="slab-label" data-tier={getSgsLabelTier(ownedCard)}>
+        <i className="slab-label-security" aria-hidden="true" />
+        <div className="slab-label-brand"><SgsMark /><span>AUTHENTIC</span></div>
+        <div className="slab-identity">
+          <small>{getSetName(getBoosterSetId(card))} · #{String(card.number).padStart(3, '0')}</small>
+          <strong>{card.name}</strong>
+          <div className="slab-identity-meta">
+            <span>HYPERVERSE TCG · {RARITY_LABELS[rarity]}</span>
+            <b>CERT {grading.certificateNumber}</b>
+          </div>
+        </div>
+        <dl className="slab-subgrades" aria-label="SGS subgrades">
+          <div><dt>Centering</dt><dd>{ownedCard.condition.centering.toFixed(1)}</dd></div>
+          <div><dt>Corners</dt><dd>{ownedCard.condition.corners.toFixed(1)}</dd></div>
+          <div><dt>Edges</dt><dd>{ownedCard.condition.edges.toFixed(1)}</dd></div>
+          <div><dt>Surface</dt><dd>{ownedCard.condition.surface.toFixed(1)}</dd></div>
+        </dl>
+        <div className="slab-grade"><small>SGS GRADE</small><strong>{grading.grade.toFixed(1)}</strong><span>{getSgsGradeName(ownedCard)}</span></div>
       </div>
       <div className="slab-card-well">
         <CardDisplay image={card.image} alt={card.name} setId={card.setId} isStamped={ownedCard.stamped} className="slab-card-display" />
