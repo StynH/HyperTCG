@@ -1,0 +1,1 @@
+{"version":1,"cardId":"051-resonating-health-crystal","activated":[{"id":"resonating-health-crystal-heal-0","name":"Resonating Health Crystal","timing":"action","once":"turn","effects":[{"op":"heal","target":"equipped-unit","amount":10}]}],"utility":{"attach":{"zone":["vanguard","backguard"],"controller":"actor","kind":"unit"}}}

@@ -1,0 +1,1 @@
+{"version":1,"cardId":"045-aleph-laser-claymore","utility":{"reaction":{"event":"attack-declared","condition":{"matches":{"ref":"event-target","selector":{"zone":["vanguard","backguard"],"controller":"actor","cardType":"Rebels"}}}},"effects":[{"op":"damage","target":"event-source","amount":30}]}}

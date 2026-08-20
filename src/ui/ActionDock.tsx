@@ -13,6 +13,7 @@ interface ActionDockProps {
   canAct: boolean;
   canPlayHand: boolean;
   canRotate: boolean;
+  construction: { completion: number; target: number; isDone: boolean; canAdvance: boolean } | null;
   attacks: AvailableAttack[];
   attackErrors: Array<string | null>;
   abilities: Array<{ sourceInstanceId: string; cardId: string; abilityId: string; name: string }>;
@@ -20,6 +21,7 @@ interface ActionDockProps {
   onAttack: (index: number) => void;
   onPlayHand: () => void;
   onAbility: (sourceInstanceId: string, abilityId: string) => void;
+  onAdvanceConstruction: () => void;
   onCancel: () => void;
   onEndTurn: () => void;
 }
@@ -53,6 +55,15 @@ export function ActionDock(props: ActionDockProps) {
           <button className="secondary-action" type="button" disabled={!props.canRotate} onClick={props.onRotate}>Rotate Unit</button>
           {props.attacks.map(({ attack, providerCardId }, index) => <AttackButton key={providerCardId + attack.id} attack={attack} selected={props.pendingAttack === index} unavailableReason={props.attackErrors[index] ?? null} onClick={() => props.onAttack(index)} />)}
         </>}
+        {props.construction && (
+          props.construction.isDone ? (
+            <span className="placement-help">Construction complete ({props.construction.target}/{props.construction.target}). Its Completed Effect is active.</span>
+          ) : (
+            <button className="secondary-action" type="button" disabled={!props.construction.canAdvance} onClick={props.onAdvanceConstruction}>
+              Advance Construction <small>{props.construction.completion}/{props.construction.target} — pay cost</small>
+            </button>
+          )
+        )}
         {props.abilities.map((ability) => (
           <button className="secondary-action" type="button" key={ability.sourceInstanceId + ability.abilityId} disabled={!props.canAct} onClick={() => props.onAbility(ability.sourceInstanceId, ability.abilityId)}>
             {ability.name}

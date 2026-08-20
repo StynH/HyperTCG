@@ -1,0 +1,1 @@
+{"version":1,"cardId":"023-cse-synth-lancer","attacks":[{"id":"cse-synth-lancer-lance-charge","effects":[{"op":"if","condition":{"hasCondition":{"ref":"defender","condition":"weakened"}},"then":[{"op":"set-attack","property":"damage","value":{"add":[{"value":"attack-damage"},20]}}]}]}]}

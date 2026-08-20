@@ -1,0 +1,1 @@
+{"version":1,"cardId":"040-digi-spectre","triggers":[{"id":"digi-spectre-network-haunt-0","event":"played","condition":{"all":[{"eventTarget":"source"},{"exists":{"zone":["vanguard","backguard"],"controller":"actor","subtitle":"Spectre","exclude":"source"}}]},"effects":[{"op":"draw","count":1}]}],"attacks":[{"id":"digi-spectre-data-spike"}]}

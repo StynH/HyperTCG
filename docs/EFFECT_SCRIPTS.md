@@ -83,7 +83,15 @@ its JSON file.
 
 `npm test` runs engine-level scenarios through Vite's module runtime, covering Unit
 play, payment, dice, Defense Checks, Damage, Exhaustion, generic choices, Equipment,
-Additional Attacks, continuous auras, triggers, and Free Effect reactions.
+Additional Attacks, continuous auras, triggers, Free Effect reactions, and Construction
+completion.
+
+A **Construction** Utility carries a runtime Completion counter and an `isDone` flag while
+in play. Its scripted `continuous` / `triggers` / `activated` contributions are suppressed
+by a single generic guard (`isDormantConstruction`) until it is Done, so no card-specific
+branch is needed. Reaching Done runs nothing on its own; it simply brings those sections
+online, so a passive Completed Effect starts applying and an activatable one becomes usable
+under its own timing for as long as the Construction stays Done.
 
 ## Rules decisions required for play
 

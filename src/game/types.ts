@@ -35,11 +35,14 @@ export interface CardDefinition {
   attacks: readonly AttackDefinition[];
   primary: CostType | null;
   image: string;
-  utilityType: 'instant' | 'continuous' | 'equipment' | 'free';
+  utilityType: 'instant' | 'continuous' | 'equipment' | 'free' | 'construction';
   utilityCondition: string;
   utilityEffect: string;
   utilityContent?: 'effect' | 'attack';
   utilityAttack?: AttackDefinition;
+  // Completion Cost printed on a Construction Utility; the number of times its
+  // Energy Cost must be re-paid before it is Done. Ignored for every other card.
+  completionCost?: number;
   unitTreatment?: 'standard' | 'super' | 'alternative';
   rarity: string;
   setId: string;
@@ -79,11 +82,12 @@ export interface PlayerState {
   hand: CardInstance[];
   vanguard: Array<UnitInPlay | null>;
   backguard: Array<UnitInPlay | null>;
-  utilities: Array<CardInstance & { attachedTo?: string }>;
+  utilities: Array<CardInstance & { attachedTo?: string; completion?: number; isDone?: boolean }>;
   energies: EnergyInPlay[];
   vanquished: CardInstance[];
   hasPlayedEnergy: boolean;
   energyPlaysThisTurn: number;
+  hasAdvancedConstruction: boolean;
   hasTakenFirstTurn: boolean;
   turnCount: number;
 }
@@ -160,7 +164,7 @@ export interface GameState {
   lastRoll: RollResult | null;
   winner: PlayerId | null;
   isOpponentActing: boolean;
-  opponentStage: 'energy' | 'unit' | 'utility' | 'attacks' | 'end' | null;
+  opponentStage: 'energy' | 'unit' | 'utility' | 'construction' | 'attacks' | 'end' | null;
   actionSequence: number;
   rollSequence: number;
   usedActions: Record<string, number>;

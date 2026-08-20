@@ -1,0 +1,1 @@
+{"version":1,"cardId":"018-project-parabellum","triggers":[{"id":"project-parabellum-completed-0","event":"unit-vanquished","once":"turn","condition":{"all":[{"eventController":"actor"},{"matches":{"ref":"event-target","selector":{"zone":"vanquished","controller":"actor","kind":"energy"}}}]},"effects":[{"op":"draw","count":1}]}],"utility":{"effects":[]}}

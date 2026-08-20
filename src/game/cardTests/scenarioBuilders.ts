@@ -85,6 +85,20 @@ export function opponentPlayUnit(
   };
 }
 
+// A Construction begins the scenario already in play in the Utility zone; the
+// action pays its Energy Cost once more to add 1 Completion. Tune
+// `setup.sourceCompletion` so that single advance either completes it or not.
+export function construction(options: ScenarioOptions = {}): GameplayScenario {
+  return {
+    name: options.name ?? 'Advancing the Construction produces its intended result',
+    covers: options.covers ?? ['utility'],
+    setup: options.setup,
+    action: { kind: 'advance-construction' },
+    choices: options.choices,
+    expect: options.expect ?? [],
+  };
+}
+
 export function continuous(continuousId: string, options: ScenarioOptions = {}): GameplayScenario {
   return {
     name: options.name ?? `${continuousId} applies its intended continuous rule`,

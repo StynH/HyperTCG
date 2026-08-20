@@ -10,12 +10,13 @@ interface CardTileProps {
   isSelected?: boolean;
   isTarget?: boolean;
   compact?: boolean;
+  caption?: string;
   modifiers?: readonly CardModifierInfo[];
   onHover: (instance: CardInstance | UnitInPlay) => void;
   onClick?: () => void;
 }
 
-export function CardTile({ instance, currentHp, isReady = true, isSelected, isTarget, compact, modifiers, onHover, onClick }: CardTileProps) {
+export function CardTile({ instance, currentHp, isReady = true, isSelected, isTarget, compact, caption, modifiers, onHover, onClick }: CardTileProps) {
   const card = getCard(instance.cardId);
   const maxHpMod = (modifiers ?? []).reduce((sum, mod) => mod.kind === 'max-hp' ? sum + (mod.amount ?? 0) : sum, 0);
   const maxHp = card.kind === 'unit' ? card.hp + maxHpMod : undefined;
@@ -31,10 +32,11 @@ export function CardTile({ instance, currentHp, isReady = true, isSelected, isTa
       onMouseEnter={() => onHover(instance)}
       onFocus={() => onHover(instance)}
       onClick={onClick}
-      aria-label={`${card.name}${!isReady ? ', Exhausted' : ''}${flagLabel}`}
+      aria-label={`${card.name}${caption ? `, ${caption}` : ''}${!isReady ? ', Exhausted' : ''}${flagLabel}`}
       type="button"
     >
       <img src={card.image} alt={card.name} draggable="false" />
+      {caption && <span className="status-chip build-chip">{caption}</span>}
       {flags && (flags.buffs > 0 || flags.debuffs > 0 || flags.neutral > 0) && (
         <span className="modifier-flags" title={flags.tooltip} aria-hidden="true">
           {flags.buffs > 0 && <span className="mod-flag buff">▲{flags.buffs}</span>}

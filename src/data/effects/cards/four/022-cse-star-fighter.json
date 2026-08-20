@@ -1,0 +1,1 @@
+{"version":1,"cardId":"022-cse-star-fighter","attacks":[{"id":"cse-star-fighter-interdiction-run","prepare":[{"op":"if","condition":{"compare":{"left":{"count":{"ref":"defender","zone":["vanguard","backguard"],"ready":false}},"op":"gte","right":1}},"then":[{"op":"set-attack","property":"ignore-defense","value":true}]}]}]}

@@ -1,7 +1,7 @@
 import type { CardDefinition } from '../../game/types';
 import type { CardEffectScript, EffectOperation } from '../../game/effectTypes';
 
-const modules = import.meta.glob('./cards/*.json', { eager: true, import: 'default' }) as Record<string, CardEffectScript>;
+const modules = import.meta.glob('./cards/**/*.json', { eager: true, import: 'default' }) as Record<string, CardEffectScript>;
 const scripts = Object.values(modules);
 
 export const EFFECT_SCRIPTS = new Map(scripts.map((script) => [script.cardId, script]));
@@ -10,6 +10,7 @@ const OPERATION_NAMES = new Set([
   'choose', 'choose-slots', 'move', 'modifier', 'draw', 'damage', 'heal', 'ready',
   'exhaust', 'rotate', 'vanquish', 'condition', 'remove-conditions', 'if', 'for-each',
   'roll', 'set-attack', 'prevent-vanquish', 'attach', 'reveal', 'shuffle', 'win', 'log',
+  'add-completion',
 ]);
 
 function validateOperations(cardId: string, operations: readonly EffectOperation[] | undefined, errors: string[]) {

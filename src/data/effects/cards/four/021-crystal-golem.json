@@ -1,0 +1,1 @@
+{"version":1,"cardId":"021-crystal-golem","triggers":[{"id":"crystal-golem-resonant-shell-0","event":"critical-defense","condition":{"eventTarget":"source"},"effects":[{"op":"damage","target":"event-source","amount":20}]}],"attacks":[{"id":"crystal-golem-crystal-shard"}]}

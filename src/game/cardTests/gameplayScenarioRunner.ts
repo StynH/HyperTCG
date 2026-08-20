@@ -1,7 +1,7 @@
 import { getCard } from '../../data/catalog';
 import {
-  activateAbility, availableAttacks, chooseEffect, endPlayerTurn, playEnergy, playUnit, playUtility,
-  runOpponentTurn, useAttack,
+  activateAbility, advanceConstruction, availableAttacks, chooseEffect, endPlayerTurn, playEnergy,
+  playUnit, playUtility, runOpponentTurn, useAttack,
 } from '../engine';
 import {
   dispatchGameEvent, findUnit, hasModifier, locateCard, modifierTotal,
@@ -55,7 +55,9 @@ function addCardSetup(context: ScenarioContext, setup: TestCardSetup): void {
   const owner = setup.owner ?? setup.player;
   const card = attachedTo
     ? { instanceId, cardId: setup.cardId, owner, attachedTo }
-    : { instanceId, cardId: setup.cardId, owner };
+    : setup.zone === 'utilities' && (setup.done !== undefined || setup.completion !== undefined)
+      ? { instanceId, cardId: setup.cardId, owner, completion: setup.completion ?? (setup.done ? 1 : 0), isDone: setup.done ?? false }
+      : { instanceId, cardId: setup.cardId, owner };
   if (setup.zone === 'deck' && setup.top) context.state.players[setup.player].deck.unshift(card);
   else if (setup.zone === 'energies') {
     const definition = getCard(setup.cardId);
@@ -118,7 +120,17 @@ function createScenarioContext(cardId: string, scenario: GameplayScenario): Scen
     if (['utility', 'energy', 'attack', 'opponent-attack'].includes(scenario.action.kind)) {
       state.players[0].hand.push({ instanceId: sourceId, cardId });
     } else if (card.kind === 'utility') {
-      state.players[0].utilities.push({ instanceId: sourceId, cardId });
+      const isConstruction = card.utilityType === 'construction';
+      state.players[0].utilities.push({
+        instanceId: sourceId,
+        cardId,
+        ...(isConstruction
+          ? {
+              completion: scenario.setup?.sourceCompletion ?? 0,
+              isDone: scenario.setup?.sourceDone ?? false,
+            }
+          : {}),
+      });
     }
   }
 
@@ -156,6 +168,17 @@ function createScenarioContext(cardId: string, scenario: GameplayScenario): Scen
 
   for (const setup of scenario.setup?.units ?? []) addUnitSetup(context, setup);
   for (const setup of scenario.setup?.cards ?? []) addCardSetup(context, setup);
+  // An Equipment tested through an ability/trigger/continuous action needs a host
+  // Unit; attach it to the ally ref after board setup so tests can pick/damage it.
+  if (card.kind === 'utility' && card.utilityType === 'equipment'
+    && !['utility', 'energy', 'attack', 'opponent-attack'].includes(scenario.action.kind)) {
+    const host = context.refs.get('ally');
+    const equipment = state.players[0].utilities.find(({ instanceId }) => instanceId === context.refs.get('source'));
+    if (host && equipment) {
+      equipment.attachedTo = host;
+      context.refs.set('equipped-unit', host);
+    }
+  }
   const defaultEnergyCopies = scenario.setup?.defaultEnergyCopies ?? 8;
   for (const player of [0, 1] as const) {
     for (const type of ['gluon', 'photon', 'electron', 'muon', 'boson', 'neutrino'] as const) {
@@ -357,6 +380,8 @@ function performAction(cardId: string, scenario: GameplayScenario, context: Scen
       context.state.activePlayer = 1;
       return playUnit(context.state, { player: 1, row: action.row, index: action.index }, requireRef(context, action.card));
     }
+    case 'advance-construction':
+      return advanceConstruction(context.state, 0, sourceId);
     case 'continuous':
       return { state: context.state };
   }

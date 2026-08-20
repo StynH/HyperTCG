@@ -34,6 +34,7 @@ function createPlayer(playerId: PlayerId, name: string, seed: number, deckId: st
     vanquished: [],
     hasPlayedEnergy: false,
     energyPlaysThisTurn: 0,
+    hasAdvancedConstruction: false,
     hasTakenFirstTurn: false,
     turnCount: 0,
   };
@@ -182,7 +183,8 @@ export function playEnergy(state: GameState, playerId: PlayerId, instanceId: str
   const player = next.players[playerId];
   const removed = removeFromHand(player, instanceId)!;
   const definition = getCard(removed.cardId);
-  player.energies.push({ ...removed, owner: removed.owner ?? playerId, energyType: definition.energyType!, isTapped: false });
+  const entersExhausted = hasModifier(next, null, playerId, 'energy-enters-exhausted');
+  player.energies.push({ ...removed, owner: removed.owner ?? playerId, energyType: definition.energyType!, isTapped: entersExhausted });
   player.energyPlaysThisTurn += 1;
   player.hasPlayedEnergy = player.energyPlaysThisTurn > 0;
   return { state: appendGameLog(next, {
@@ -194,16 +196,27 @@ export function playEnergy(state: GameState, playerId: PlayerId, instanceId: str
   }) };
 }
 
+export function unitPlacementError(state: GameState, address: BoardAddress): string | null {
+  const player = state.players[address.player];
+  if (player[address.row][address.index]) return 'That position is occupied.';
+  if (address.row !== 'backguard') return null;
+  if (hasModifier(state, null, address.player, 'cannot-play-backguard')) {
+    return 'Units cannot be played to your Backguard right now.';
+  }
+  if (player.vanguard.every((slot) => slot === null)) {
+    return 'Your Vanguard is empty, so this Unit must enter the Vanguard.';
+  }
+  return null;
+}
+
 export function playUnit(state: GameState, address: BoardAddress, instanceId: string): GameResult {
   const blocked = actionBlocked(state);
   if (blocked) return { state, error: blocked };
   if (state.activePlayer !== address.player || state.winner !== null) return { state, error: 'It is not your turn.' };
   const next = cloneState(state);
   const player = next.players[address.player];
-  if (player[address.row][address.index]) return { state, error: 'That position is occupied.' };
-  if (address.row === 'backguard' && hasModifier(next, null, address.player, 'cannot-play-backguard')) {
-    return { state, error: 'Units cannot be played to your Backguard right now.' };
-  }
+  const placementError = unitPlacementError(next, address);
+  if (placementError) return { state, error: placementError };
   const held = player.hand.find((item) => item.instanceId === instanceId);
   if (!held) return { state, error: 'That card is no longer in your hand.' };
   const card = getCard(held.cardId);
@@ -256,16 +269,79 @@ export function playUtility(state: GameState, playerId: PlayerId, instanceId: st
   const next = cloneState(state);
   payCardCost(next, playerId, card.id, 'utility');
   const removed = removeFromHand(next.players[playerId], instanceId)!;
-  if (card.utilityType === 'continuous' || card.utilityType === 'equipment') next.players[playerId].utilities.push(removed);
-  else next.players[playerId].vanquished.push(removed);
+  const staysInPlay = card.utilityType === 'continuous'
+    || card.utilityType === 'equipment'
+    || card.utilityType === 'construction';
+  if (card.utilityType === 'construction') {
+    // A Construction enters play unfinished: its Completed Effect stays dormant
+    // until the Completion counter reaches its Completion Cost.
+    next.players[playerId].utilities.push({ ...removed, completion: 0, isDone: false });
+  } else if (staysInPlay) {
+    next.players[playerId].utilities.push(removed);
+  } else {
+    next.players[playerId].vanquished.push(removed);
+  }
   appendGameLog(next, {
     kind: 'play',
     message: next.players[playerId].name + ' played ' + card.name + '.',
     source: cardLogSubject(removed, playerId),
     target: playerLogSubject(next, playerId),
-    action: card.utilityType === 'equipment' ? 'Played Equipment' : 'Played Utility',
+    action: card.utilityType === 'equipment'
+      ? 'Played Equipment'
+      : card.utilityType === 'construction'
+        ? 'Began Construction'
+        : 'Played Utility',
   });
-  startUtilityScript(next, playerId, instanceId);
+  // A Construction runs no script on entry — only its later Completion does.
+  if (card.utilityType !== 'construction') startUtilityScript(next, playerId, instanceId);
+  if (!next.pendingChoice) dispatchGameEvent(next, { name: 'played', sourceId: instanceId, targetId: instanceId, controller: playerId });
+  return { state: next };
+}
+
+export function advanceConstructionActionError(state: GameState, playerId: PlayerId, instanceId: string): string | null {
+  const blocked = actionBlocked(state);
+  if (blocked) return blocked;
+  if (state.activePlayer !== playerId || state.winner !== null) return 'It is not your turn.';
+  const player = state.players[playerId];
+  const entry = player.utilities.find((item) => item.instanceId === instanceId);
+  if (!entry) return 'That Construction is not in play.';
+  const card = getCard(entry.cardId);
+  if (card.utilityType !== 'construction') return 'That card is not a Construction.';
+  if (entry.isDone) return 'That Construction is already Done.';
+  if (player.hasAdvancedConstruction) return 'You can advance only one Construction each turn.';
+  const paymentState = cloneState(state);
+  if (!payCardCost(paymentState, playerId, card.id, 'utility')) return 'You do not have the required Ready Energy.';
+  return null;
+}
+
+export function advanceConstruction(state: GameState, playerId: PlayerId, instanceId: string): GameResult {
+  const unavailable = advanceConstructionActionError(state, playerId, instanceId);
+  if (unavailable) return { state, error: unavailable };
+  const next = cloneState(state);
+  const card = getCard(next.players[playerId].utilities.find((item) => item.instanceId === instanceId)!.cardId);
+  payCardCost(next, playerId, card.id, 'utility');
+  const entry = next.players[playerId].utilities.find((item) => item.instanceId === instanceId)!;
+  entry.completion = (entry.completion ?? 0) + 1;
+  next.players[playerId].hasAdvancedConstruction = true;
+  const target = card.completionCost ?? 1;
+  const done = entry.completion >= target;
+  entry.isDone = done;
+  appendGameLog(next, {
+    kind: 'play',
+    message: done
+      ? next.players[playerId].name + ' completed ' + card.name + '.'
+      : next.players[playerId].name + ' advanced ' + card.name + ' to ' + entry.completion + '/' + target + ' Completion.',
+    source: cardLogSubject(entry, playerId),
+    target: playerLogSubject(next, playerId),
+    action: done ? 'Construction completed' : 'Advanced Construction',
+    amount: entry.completion,
+  });
+  dispatchGameEvent(next, { name: 'construction-advanced', sourceId: instanceId, targetId: instanceId, controller: playerId });
+  if (done) dispatchGameEvent(next, { name: 'construction-done', sourceId: instanceId, targetId: instanceId, controller: playerId });
+  // Completion does not resolve the Completed Effect. Becoming Done simply brings
+  // the Construction's scripts online: its passives apply and its activatable
+  // abilities become usable for as long as it stays Done in play (see the
+  // isDormantConstruction guard).
   return { state: next };
 }
 
@@ -377,7 +453,8 @@ export function useAttack(
   const defendingUnits = [...state.players[defenderId].vanguard, ...state.players[defenderId].backguard].filter(Boolean);
   if (isDamagingAttack(attack)) {
     if (!target && defendingUnits.length) return { state, error: 'Choose an opposing Vanguard Unit.' };
-    if (target && (target.player !== defenderId || target.row !== 'vanguard')) return { state, error: 'Damaging attacks target the opposing Vanguard.' };
+    const reachesBackguard = hasModifier(state, attacker.instanceId, null, 'can-target-backguard');
+    if (target && (target.player !== defenderId || (target.row !== 'vanguard' && !reachesBackguard))) return { state, error: 'Damaging attacks target the opposing Vanguard.' };
     if (target && !state.players[target.player][target.row][target.index]) return { state, error: 'That target is no longer present.' };
   }
   const next = cloneState(state);
@@ -445,6 +522,7 @@ function readyPlayer(state: GameState, playerId: PlayerId) {
   const player = state.players[playerId];
   player.hasPlayedEnergy = false;
   player.energyPlaysThisTurn = 0;
+  player.hasAdvancedConstruction = false;
   player.energies.forEach((energy) => {
     if (!hasModifier(state, energy.instanceId, null, 'cannot-ready')) energy.isTapped = false;
   });
@@ -545,6 +623,15 @@ function affordable(player: PlayerState, kind: 'unit' | 'utility') {
   });
 }
 
+function advanceableConstruction(player: PlayerState) {
+  if (player.hasAdvancedConstruction) return undefined;
+  return player.utilities.find((entry) => {
+    const card = getCard(entry.cardId);
+    return card.utilityType === 'construction' && !entry.isDone
+      && energyPayment(card.cost, player.energies) !== null;
+  });
+}
+
 export function runOpponentTurn(state: GameState, random: () => number = secureRandom): GameState {
   if (state.pendingMulligan || state.pendingChoice || state.winner !== null || state.activePlayer !== 1) return state;
   let next = cloneState(state);
@@ -564,6 +651,12 @@ export function runOpponentTurn(state: GameState, random: () => number = secureR
   const utility = affordable(next.players[1], 'utility');
   if (utility) {
     const result = playUtility(next, 1, utility.instanceId);
+    if (!result.error) next = result.state;
+  }
+  if (next.pendingChoice) return next;
+  const construction = advanceableConstruction(next.players[1]);
+  if (construction) {
+    const result = advanceConstruction(next, 1, construction.instanceId);
     if (!result.error) next = result.state;
   }
   if (next.pendingChoice) return next;
@@ -626,10 +719,22 @@ export function runOpponentStep(state: GameState, random: () => number = secureR
         continue;
       }
       case 'utility': {
-        next.opponentStage = next.players[1].hasTakenFirstTurn ? 'attacks' : 'end';
+        next.opponentStage = 'construction';
         const utility = affordable(next.players[1], 'utility');
         if (utility) {
           const result = playUtility(next, 1, utility.instanceId);
+          if (!result.error) {
+            next = result.state;
+            return next;
+          }
+        }
+        continue;
+      }
+      case 'construction': {
+        next.opponentStage = next.players[1].hasTakenFirstTurn ? 'attacks' : 'end';
+        const construction = advanceableConstruction(next.players[1]);
+        if (construction) {
+          const result = advanceConstruction(next, 1, construction.instanceId);
           if (!result.error) {
             next = result.state;
             return next;

@@ -22,6 +22,8 @@ export interface TestCardSetup {
   isTapped?: boolean;
   attachedTo?: string;
   top?: boolean;
+  completion?: number;
+  done?: boolean;
 }
 
 export interface TestSetup {
@@ -30,6 +32,10 @@ export interface TestSetup {
   sourceHp?: number;
   sourceReady?: boolean;
   sourceConditions?: Array<{ name: ConditionName; amount?: number }>;
+  // Construction sources start in the Utility zone with this much Completion
+  // already accrued, so a single advance can be tuned to complete it or not.
+  sourceCompletion?: number;
+  sourceDone?: boolean;
   units?: readonly TestUnitSetup[];
   cards?: readonly TestCardSetup[];
   playerHp?: Partial<Record<PlayerId, number>>;
@@ -67,6 +73,7 @@ export type TestAction =
   | { kind: 'opponent-attack'; attackerCardId: string; attackId: string; target: string; effectRoll?: number; criticalRoll?: number; defenseRoll?: number }
   | { kind: 'friendly-attack'; attackerCardId: string; attackId: string; target?: string | null; effectRoll?: number; criticalRoll?: number; defenseRoll?: number }
   | { kind: 'opponent-play-unit'; card: string; row: RowName; index: number }
+  | { kind: 'advance-construction' }
   | { kind: 'continuous' };
 
 export interface TestChoice {

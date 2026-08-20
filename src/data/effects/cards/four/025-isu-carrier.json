@@ -1,0 +1,1 @@
+{"version":1,"cardId":"025-isu-carrier","continuous":[{"id":"isu-carrier-layered-hull-0","target":{"ref":"source","zone":["vanguard","backguard"]},"kind":"attack-damage-taken","amount":-20,"condition":{"compare":{"left":{"value":"attack-damage"},"op":"gte","right":80}}}],"attacks":[{"id":"isu-carrier-point-defense"}]}

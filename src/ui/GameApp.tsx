@@ -73,6 +73,21 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
   const detail = hovered ?? selectedHand ?? selectedUnit?.unit ?? selectedUtility ?? null;
   const detailModifiers = detail && 'currentHp' in detail ? describeCardModifiers(game.state, detail.instanceId) : [];
 
+  // A selected Construction you control in the field can be advanced toward its
+  // Completion Cost; the dock shows the counter and grays the action when illegal.
+  const constructionEntry = selectedUtility
+    ? you.utilities.find((entry) => entry.instanceId === selectedUtility.instanceId)
+    : undefined;
+  const construction = constructionEntry
+    && getCard(constructionEntry.cardId).utilityType === 'construction'
+    ? {
+        completion: constructionEntry.completion ?? 0,
+        target: getCard(constructionEntry.cardId).completionCost ?? 1,
+        isDone: constructionEntry.isDone ?? false,
+        canAdvance: !game.advanceConstructionActionError(selectedUtility!.instanceId),
+      }
+    : null;
+
   const clearSelection = () => {
     setSelectedHand(null);
     setSelectedUnit(null);
@@ -185,6 +200,7 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
             utilitySelection={selectedUtility}
             pendingAttack={pendingAttack}
             canAct={canAct}
+            construction={construction}
             attacks={selectedAttacks}
             attackErrors={selectedAttackErrors}
             abilities={selectedAbilities}
@@ -194,6 +210,7 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
             onAttack={beginAttack}
             onPlayHand={playSelectedHand}
             onAbility={(sourceInstanceId, abilityId) => { if (game.activateAbility(sourceInstanceId, abilityId)) clearSelection(); }}
+            onAdvanceConstruction={() => { if (selectedUtility && game.advanceConstruction(selectedUtility.instanceId)) clearSelection(); }}
             onCancel={clearSelection}
             onEndTurn={() => { clearSelection(); game.endTurn(); }}
           />

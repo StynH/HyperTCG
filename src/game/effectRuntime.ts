@@ -44,6 +44,8 @@ export interface AttackRuntime {
   isFailed: boolean;
   shouldExhaust: boolean;
   ignoresDefense: boolean;
+  criticalMultiplier?: number;
+  cannotCrit?: boolean;
 }
 
 type StoredValue = string[] | number | boolean;
@@ -65,6 +67,7 @@ type InternalOperation =
   | { internal: 'offer-die-actions' }
   | { internal: 'run'; effects: readonly EffectOperation[]; skipIfAttackFailed?: boolean }
   | { internal: 'roll-critical' }
+  | { internal: 'self-attack-damage' }
   | { internal: 'resolve-attack-damage' }
   | { internal: 'finish-attack' }
   | { internal: 'tap-surplus'; ref: string }
@@ -225,6 +228,10 @@ function matchesSelectorBase(
   const subtitles = typeof selector.subtitle === 'string' ? [selector.subtitle] : selector.subtitle;
   if (subtitles && !subtitles.includes(definition.subtitle)) return false;
   if (selector.utilityType && definition.utilityType !== selector.utilityType) return false;
+  if (selector.constructionDone !== undefined) {
+    if (location.zone !== 'utilities') return false;
+    if (Boolean(state.players[location.player].utilities[location.index].isDone) !== selector.constructionDone) return false;
+  }
   if (selector.row && location.row !== selector.row) return false;
   if (selector.costAtMost !== undefined && definition.cost.length > selector.costAtMost) return false;
   if (selector.costExactly !== undefined && definition.cost.length !== selector.costExactly) return false;
@@ -284,10 +291,20 @@ export function selectCards(state: GameState, selector: CardSelector, context: E
   }
 }
 
+// A Construction Utility contributes nothing to the game — no aura, trigger, or
+// activated ability — until its Completion counter reaches its Completion Cost.
+export function isDormantConstruction(state: GameState, instanceId: string): boolean {
+  const location = locateCard(state, instanceId);
+  if (!location || location.zone !== 'utilities') return false;
+  if (getCard(cardAt(state, location)!.cardId).utilityType !== 'construction') return false;
+  return !state.players[location.player].utilities[location.index].isDone;
+}
+
 function activeSources(state: GameState): string[] {
   return allLocations(state)
     .filter(({ zone }) => zone === 'vanguard' || zone === 'backguard' || zone === 'utilities')
-    .map((location) => cardAt(state, location)!.instanceId);
+    .map((location) => cardAt(state, location)!.instanceId)
+    .filter((instanceId) => !isDormantConstruction(state, instanceId));
 }
 
 function continuousEntries(state: GameState, targetId: string | null, targetPlayer: PlayerId | null, kind: ModifierKind, continuation?: EffectContinuation) {
@@ -1019,6 +1036,9 @@ function applyCondition(
     action: name + (amount === undefined ? '' : ' ' + amount),
     amount,
   });
+  pushFrame(context.continuation, [{ internal: 'dispatch', event: {
+    name: 'condition-afflicted', sourceId: context.sourceId, targetId: id, controller: location.player,
+  } }], context);
 }
 
 function rotateUnit(state: GameState, id: string, exhaust: boolean, context: ExecutionContext) {
@@ -1225,7 +1245,10 @@ function executeOperation(
   const continuation = context.continuation;
   switch (operation.op) {
     case 'choose': {
-      const candidates = selectCards(state, operation.selector, context);
+      const candidates = selectCards(state, operation.selector, context).filter((id) => {
+        if (!hasModifier(state, id, null, 'cannot-target-by-opponent', undefined, continuation)) return true;
+        return locateCard(state, id)?.player === context.actor;
+      });
       const min = Math.min(operation.min ?? 1, candidates.length);
       const max = Math.min(operation.max ?? 1, candidates.length);
       if (context.actor === 1) {
@@ -1448,6 +1471,24 @@ function executeOperation(
       if (operation.property === 'failed') attack.isFailed = Boolean(value);
       if (operation.property === 'exhaust-attacker') attack.shouldExhaust = Boolean(value);
       if (operation.property === 'ignore-defense') attack.ignoresDefense = Boolean(value);
+      if (operation.property === 'critical-multiplier') attack.criticalMultiplier = Number(value);
+      if (operation.property === 'cannot-crit') attack.cannotCrit = Boolean(value);
+      return;
+    }
+    case 'add-completion': {
+      const amount = operation.amount ? evaluateValue(state, operation.amount, context) : 1;
+      for (const id of targetIds(state, operation.target, context)) {
+        const location = locateCard(state, id);
+        if (!location || location.zone !== 'utilities') continue;
+        const entry = state.players[location.player].utilities[location.index];
+        const card = getCard(entry.cardId);
+        if (card.utilityType !== 'construction' || entry.isDone) continue;
+        entry.completion = (entry.completion ?? 0) + amount;
+        if (entry.completion >= (card.completionCost ?? 1)) {
+          entry.isDone = true;
+          pushFrame(continuation, [{ internal: 'dispatch', event: { name: 'construction-done', sourceId: id, targetId: id, controller: location.player } }], context);
+        }
+      }
       return;
     }
     case 'prevent-vanquish': {
@@ -1527,7 +1568,7 @@ function executeOperation(
 
 function setAttackOperations(effects: readonly EffectOperation[]): EffectOperation[] {
   return effects.flatMap((operation): EffectOperation[] => {
-    if (operation.op === 'set-attack') return ['damage', 'critical', 'failed'].includes(operation.property) ? [operation] : [];
+    if (operation.op === 'set-attack') return ['damage', 'critical', 'failed', 'critical-multiplier', 'cannot-crit'].includes(operation.property) ? [operation] : [];
     if (operation.op !== 'if') return [];
     const then = setAttackOperations(operation.then);
     const otherwise = setAttackOperations(operation.else ?? []);
@@ -1601,6 +1642,12 @@ function executeInternal(
       if (attack && operation.store === 'x-cost') attack.xCost = ids.length;
       return;
     }
+    case 'self-attack-damage': {
+      if (!attack) return;
+      const selfDamage = modifierTotal(state, attack.attackerId, null, 'damage-on-attack', continuation);
+      if (selfDamage > 0) applyDamage(state, continuation, [attack.attackerId], selfDamage, context, 'effect');
+      return;
+    }
     case 'roll-critical':
       if (!attack || attack.damage <= 0 || attack.isFailed || attack.isCritical) return;
       attack.criticalRoll = rollDie(20, random);
@@ -1620,7 +1667,7 @@ function executeInternal(
       }
       const attacker = findUnit(state, attack.attackerId);
       const isWeakened = attacker?.conditions.some(({ name }) => name === 'weakened') ?? false;
-      if (attack.criticalRoll === 20 && !isWeakened) attack.isCritical = true;
+      if (attack.criticalRoll === 20 && !isWeakened && !attack.cannotCrit) attack.isCritical = true;
       return;
     case 'resolve-attack-damage': {
       if (!attack || attack.damage <= 0) return;
@@ -1631,7 +1678,7 @@ function executeInternal(
       let damage = attack.damage + modifierTotal(state, attack.attackerId, null, 'attack-damage', continuation);
       if (attack.defenderId) damage += modifierTotal(state, attack.defenderId, null, 'attack-damage-taken', continuation);
       damage = Math.max(0, damage);
-      if (attack.isCritical) damage *= 2;
+      if (attack.isCritical) damage *= attack.criticalMultiplier ?? 2;
       if (!attack.defenderId) {
         const defender = state.players[attack.defendingPlayer];
         defender.hp = Math.max(0, defender.hp - damage);
@@ -1681,6 +1728,12 @@ function executeInternal(
         attackRollContext(attack),
       );
       applyDamage(state, continuation, [attack.defenderId], damage, context, 'attack');
+      if (!attack.ignoresDefense && attack.defenseRoll !== undefined && attack.defenseRoll <= 5) {
+        pushFrame(continuation, [{ internal: 'dispatch', event: {
+          name: 'critical-defense', sourceId: attack.attackerId, targetId: attack.defenderId,
+          controller: locateCard(state, attack.defenderId)?.player ?? attack.defendingPlayer,
+        } }], context);
+      }
       return;
     }
     case 'finish-attack':
@@ -1840,6 +1893,7 @@ export function startAttackEffects(
     program.push({ internal: 'tap-surplus', ref: 'surplus-energy' });
   }
   program.push({ internal: 'dispatch', event: { name: 'attack-declared', ...eventBase } });
+  program.push({ internal: 'self-attack-damage' });
   if (targetInstanceId) program.push({ internal: 'dispatch', event: { name: 'attack-targeted', ...eventBase } });
   if (runtime.effectDieSides) {
     program.push({ internal: 'roll-effect-die', sides: runtime.effectDieSides });
@@ -1906,6 +1960,7 @@ export function canActivate(
 ): boolean {
   const location = locateCard(state, sourceInstanceId);
   if (!location || location.player !== player) return false;
+  if (isDormantConstruction(state, sourceInstanceId)) return false;
   const instance = cardAt(state, location)!;
   const ability = getEffectScript(instance.cardId).activated?.find(({ id }) => id === abilityId);
   if (!ability || ability.timing !== 'action') return false;

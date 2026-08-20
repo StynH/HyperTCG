@@ -1,0 +1,1 @@
+{"version":1,"cardId":"048-energy-retrieval-service","utility":{"effects":[{"op":"choose","selector":{"zone":"vanquished","controller":"actor","kind":"energy"},"store":"e","min":0,"max":2,"prompt":"Put up to 2 Energy from your Vanquished Pile into your hand."},{"op":"move","cards":"e","to":"hand"}]}}

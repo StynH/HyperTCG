@@ -15,12 +15,13 @@ The game currently uses three main card types:
 - **Utility**
 - **Energy**
 
-Utility cards have four classifications:
+Utility cards have five classifications:
 
 - **Instant Effect**
 - **Continuous Effect**
 - **Equipment**
 - **Free Effect**
+- **Construction**
 
 A Unit may also have a special classification:
 
@@ -710,6 +711,19 @@ Free Effects provide the game's default form of Utility interaction during the o
 
 The exact reaction windows and priority rules governing when a Free Effect may be inserted into an action or attack sequence are not yet defined.
 
+### Construction
+
+A Construction is a Utility with two printed numbers: its **Energy Cost** and a **Completion Cost**.
+
+- It is played from the hand by paying its Energy Cost, like any Utility, and then remains in play.
+- It enters play unfinished, with a Completion counter of 0. Its **Completed Effect** does nothing while it is unfinished.
+- Once during your turn, you may pay its Energy Cost again to add 1 to its Completion counter.
+- You may advance only one Construction each turn, regardless of how many you control.
+- When its Completion counter reaches its Completion Cost, the Construction is **Done**. Reaching Done does not itself resolve the Completed Effect. Instead, for as long as the Construction remains Done in play, its **Completed Effect** is active: any passive part applies, and any part written as an ability may be triggered under its own timing. Completing a Construction does not consume its Completed Effect.
+- A Construction may be destroyed or Vanquished like any other Utility; a Vanquished Construction loses all accumulated Completion.
+
+The Completion counter is tracked in play as a marker on the card and is not printed card text. The Completion Cost is a printed number and is always a whole number of 1 or more.
+
 ### Additional Attacks
 
 An Additional Attack granted by Equipment is treated as an attack available to the equipped Unit and follows the normal attack rules unless the Equipment says otherwise.
@@ -856,7 +870,8 @@ Card rules text uses consistent functional terminology. These forms must remain 
 | Attack markers | **N**, **BG** |
 | Effect die notation | **D4**, **D6**, **D8**, **D10**, **D12**, **D20**, etc. |
 | Effect die result | **[DR]** |
-| Utility classifications | **Instant Effect**, **Continuous Effect**, **Equipment**, **Free Effect** |
+| Utility classifications | **Instant Effect**, **Continuous Effect**, **Equipment**, **Free Effect**, **Construction** |
+| Construction terms | **Completion Cost**, **Completion**, **Done**, **Completed Effect** |
 | Unit classifications | **SUPER**, **Alternative** |
 | Printed Damage notation | **40**, **40+**, **10x**, **N**, **BG** |
 
@@ -927,8 +942,9 @@ Unit cards may contain:
 
 Utility cards may contain:
 
-- **Utility classification** — Instant Effect, Continuous Effect, Equipment, or Free Effect
+- **Utility classification** — Instant Effect, Continuous Effect, Equipment, Free Effect, or Construction
 - **Utility content** — Effect or Additional Attack
+- **Completion Cost** — printed number, Construction only; a Construction always uses Effect content and prints a Completed Effect
 - **Condition** — optional rules text explaining when or how the Utility can be used
 - **Effect text**
 - **Additional Attack**

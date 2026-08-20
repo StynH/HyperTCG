@@ -1,4 +1,5 @@
 import { GENERATED_CARDS } from './cardCatalog.generated';
+import { GENERATED_CARDS_FOUR } from './cardCatalog.four.generated';
 import { ALTERNATIVE_CARDS } from './alternativeCards';
 import { ENERGY_TYPES, type CardDefinition, type EnergyType } from '../game/types';
 import { validateEffectScripts } from './effects';
@@ -39,6 +40,7 @@ const energyCards: CardDefinition[] = ENERGY_TYPES.map((energy) => ({
 
 export const CARD_CATALOG = [
   ...(GENERATED_CARDS as unknown as CardDefinition[]),
+  ...(GENERATED_CARDS_FOUR as unknown as CardDefinition[]),
   ...ALTERNATIVE_CARDS,
   ...energyCards,
 ];

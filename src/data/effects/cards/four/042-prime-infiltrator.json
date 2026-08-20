@@ -1,0 +1,1 @@
+{"version":1,"cardId":"042-prime-infiltrator","continuous":[{"id":"prime-infiltrator-inside-job-0","target":{"ref":"source","zone":["vanguard","backguard"]},"kind":"can-target-backguard"}],"attacks":[{"id":"prime-infiltrator-silent-takedown"}]}

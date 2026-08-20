@@ -1,0 +1,1 @@
+{"version":1,"cardId":"017-planetary-strike","utility":{"effects":[{"op":"damage","target":{"zone":"vanguard","controller":"opponent","kind":"unit"},"amount":40}]}}

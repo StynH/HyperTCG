@@ -13,7 +13,7 @@ export interface CardSelector {
   energyType?: Exclude<CostType, 'any'>;
   cardType?: string;
   subtitle?: string | readonly string[];
-  utilityType?: 'instant' | 'continuous' | 'equipment' | 'free';
+  utilityType?: 'instant' | 'continuous' | 'equipment' | 'free' | 'construction';
   row?: RowName;
   ready?: boolean;
   hasCondition?: ConditionName | 'any';
@@ -25,6 +25,7 @@ export interface CardSelector {
   attachedTo?: CardRef;
   equipmentSlotsAvailable?: boolean;
   hasModifier?: { kind: ModifierKind; source?: CardRef; text?: string };
+  constructionDone?: boolean;
 }
 
 export type ValueExpression = number
@@ -88,7 +89,8 @@ export type ModifierKind =
   | 'utility-cost' | 'cannot-attack' | 'cannot-rotate' | 'cannot-afflict-condition'
   | 'condition-immunity' | 'add-card-type' | 'ignore-defense' | 'extra-energy-play'
   | 'cannot-play-backguard' | 'reveal-hand' | 'ignore-rotation-prevention' | 'reroll-effect-die'
-  | 'cannot-ready';
+  | 'cannot-ready' | 'cannot-target-by-opponent' | 'damage-on-attack' | 'energy-enters-exhausted'
+  | 'reveal-top-deck' | 'marked' | 'can-target-backguard';
 
 export type ModifierDuration = 'turn' | 'active-turn' | 'opponent-next-turn' | 'controller-next-turn' | 'attack' | 'permanent';
 
@@ -118,8 +120,9 @@ export type EffectOperation =
   | { op: 'if'; condition: ConditionExpression; then: readonly EffectOperation[]; else?: readonly EffectOperation[] }
   | { op: 'for-each'; selector: CardSelector; store: CardRef; effects: readonly EffectOperation[] }
   | { op: 'roll'; sides: number; store?: 'dr' }
-  | { op: 'set-attack'; property: 'damage' | 'critical' | 'failed' | 'exhaust-attacker' | 'ignore-defense'; value: ValueExpression | boolean }
+  | { op: 'set-attack'; property: 'damage' | 'critical' | 'failed' | 'exhaust-attacker' | 'ignore-defense' | 'critical-multiplier' | 'cannot-crit'; value: ValueExpression | boolean }
   | { op: 'prevent-vanquish'; target: CardRef; hp: number }
+  | { op: 'add-completion'; target: CardRef | CardSelector; amount?: ValueExpression }
   | { op: 'attach'; equipment: CardRef; unit: CardRef }
   | { op: 'reveal'; target: CardRef | CardSelector; to?: ControllerRef }
   | { op: 'shuffle'; player?: ControllerRef }
@@ -141,7 +144,7 @@ export interface ActivatedScript {
   effects: readonly EffectOperation[];
 }
 
-export type GameEventName = 'played' | 'attack-targeted' | 'attack-declared' | 'unit-rotated' | 'unit-vanquished' | 'turn-start' | 'turn-end' | 'would-vanquish';
+export type GameEventName = 'played' | 'attack-targeted' | 'attack-declared' | 'unit-rotated' | 'unit-vanquished' | 'turn-start' | 'turn-end' | 'would-vanquish' | 'construction-advanced' | 'construction-done' | 'condition-afflicted' | 'critical-defense';
 
 export interface TriggeredScript {
   id: string;

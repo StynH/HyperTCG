@@ -1,5 +1,6 @@
 import { getCard } from '../data/catalog';
 import { describeCardModifiers } from '../game/effectRuntime';
+import { unitPlacementError } from '../game/engine';
 import type { BoardAddress, CardInstance, GameState, PlayerId, PlayerState, RowName, UnitInPlay } from '../game/types';
 import { CardTile } from './CardTile';
 
@@ -61,9 +62,10 @@ function UnitRow({ row, ...props }: UnitRowsProps & { row: RowName }) {
           const address = { player: props.playerId, row, index };
           const selected = props.selected?.player === address.player && props.selected.row === row && props.selected.index === index;
           const targetable = Boolean(props.targetMode && props.playerId === 1 && row === 'vanguard' && unit);
+          const placeable = Boolean(props.legalUnitPlacement) && !unitPlacementError(props.state, address);
           const equipment = unit ? props.player.utilities.filter(({ attachedTo }) => attachedTo === unit.instanceId) : [];
           return (
-            <div className={`unit-slot ${!unit && props.legalUnitPlacement ? 'legal' : ''} ${targetable ? 'legal-target' : ''}`} key={`${row}-${index}`}>
+            <div className={`unit-slot ${placeable ? 'legal' : ''} ${targetable ? 'legal-target' : ''}`} key={`${row}-${index}`}>
               <div className="unit-card-frame">
                 {unit ? (
                   <CardTile instance={unit} currentHp={unit.currentHp} isReady={unit.isReady} isSelected={selected} isTarget={targetable} modifiers={describeCardModifiers(props.state, unit.instanceId)} onHover={props.onHover} onClick={() => props.onSlotClick(address)} />
@@ -108,8 +110,27 @@ export function UtilityZone({ cards, playerId, selectedId, onHover, onClick }: {
       <div className="utility-cards">
         {fieldCards.length === 0
           ? <span className="utility-empty">No unattached Utilities in play</span>
-          : fieldCards.map((card) => <CardTile compact key={card.instanceId} instance={card} isSelected={selectedId === card.instanceId} onHover={onHover} onClick={() => onClick(card, playerId)} />)}
+          : fieldCards.map((card) => (
+              <CardTile
+                compact
+                key={card.instanceId}
+                instance={card}
+                caption={constructionCaption(card)}
+                isSelected={selectedId === card.instanceId}
+                onHover={onHover}
+                onClick={() => onClick(card, playerId)}
+              />
+            ))}
       </div>
     </section>
   );
+}
+
+// A Construction in play shows its live Completion counter as a token on the
+// card; every other Utility shows nothing.
+function constructionCaption(card: PlayerState['utilities'][number]): string | undefined {
+  const definition = getCard(card.cardId);
+  if (definition.utilityType !== 'construction') return undefined;
+  const target = definition.completionCost ?? 1;
+  return card.isDone ? 'DONE' : `${card.completion ?? 0}/${target}`;
 }

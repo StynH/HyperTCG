@@ -1,0 +1,1 @@
+{"version":1,"cardId":"016-earth-3021","triggers":[{"id":"earth-3021-ramp-0","event":"construction-advanced","condition":{"eventController":"actor"},"effects":[{"op":"choose","selector":{"zone":"energies","controller":"actor","kind":"energy","ready":false},"store":"e","min":0,"max":1,"prompt":"Ready 1 Energy."},{"op":"ready","target":"e"}]}],"utility":{"effects":[]}}

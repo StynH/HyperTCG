@@ -1,0 +1,1 @@
+{"version":1,"cardId":"011-project-voidstar-looking-glass","continuous":[{"id":"project-voidstar-looking-glass-completed-0","target":{"zone":["vanguard","backguard"],"controller":"actor","cardType":"SCE","kind":"unit"},"kind":"can-target-backguard"}],"utility":{"effects":[]}}

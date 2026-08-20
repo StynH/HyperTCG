@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
 import { getCard } from '../data/catalog';
 import {
-  activateAbility, attackActionError, availableActivatedAbilities, availableAttacks, chooseEffect, createGame,
-  endPlayerTurn, mulliganOpeningHand, playEnergy, playEnergyActionError, playUnit, playUtility,
+  activateAbility, advanceConstruction, advanceConstructionActionError, attackActionError,
+  availableActivatedAbilities, availableAttacks, chooseEffect, createGame, endPlayerTurn,
+  mulliganOpeningHand, playEnergy, playEnergyActionError, playUnit, playUtility,
   playUtilityActionError, rotateUnit, rotateUnitActionError, runOpponentStep, useAttack,
 } from './engine';
 import type { BoardAddress, GameResult, GameState } from './types';
@@ -55,6 +56,8 @@ export function useGame(playerDeckId: string, opponentDeckId: string) {
     },
     abilities: availableActivatedAbilities(state, 0),
     activateAbility: (sourceInstanceId: string, abilityId: string) => apply(activateAbility(state, 0, sourceInstanceId, abilityId)),
+    advanceConstruction: (instanceId: string) => apply(advanceConstruction(state, 0, instanceId)),
+    advanceConstructionActionError: (instanceId: string) => advanceConstructionActionError(state, 0, instanceId),
     choose: (selectedIds: readonly string[]) => apply(chooseEffect(state, selectedIds)),
     endTurn: () => apply(endPlayerTurn(state)),
   };

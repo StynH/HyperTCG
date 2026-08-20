@@ -106,6 +106,7 @@ export function populateTestZones(state: GameState): void {
   addTestUnit(state, 0, 'backguard', 0, '069-conscript');
   const conditioned = addTestUnit(state, 0, 'backguard', 1, '023-squidward');
   addTestCondition(state, conditioned, 'cowering');
+  addTestUnit(state, 0, 'backguard', 2, '037-aleph-striker');
   addTestUnit(state, 1, 'vanguard', 0, '069-conscript');
   addTestUnit(state, 1, 'vanguard', 1, '035-cremator');
   addTestUnit(state, 1, 'backguard', 0, '067-civilian');

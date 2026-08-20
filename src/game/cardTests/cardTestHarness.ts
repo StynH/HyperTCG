@@ -3,7 +3,7 @@ import { getEffectScript } from '../../data/effects';
 import type { CardGameplayTest, GameplayScenario } from './gameplayTestTypes';
 import { runGameplayScenario } from './gameplayScenarioRunner';
 
-const modules = import.meta.glob('./cards/*.test.ts', { eager: true, import: 'default' }) as Record<string, CardGameplayTest>;
+const modules = import.meta.glob('./cards/**/*.test.ts', { eager: true, import: 'default' }) as Record<string, CardGameplayTest>;
 
 export interface CardTestResult {
   suiteId: string;

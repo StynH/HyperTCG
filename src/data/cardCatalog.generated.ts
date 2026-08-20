@@ -85,6 +85,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "001-admiral-asgore-dreemurr",
     "image": "/cards/001-admiral-asgore-dreemurr.png"
   },
@@ -166,6 +167,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "002-apocalypse",
     "image": "/cards/002-apocalypse.png"
   },
@@ -239,6 +241,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "003-barack-obama",
     "image": "/cards/003-barack-obama.png"
   },
@@ -329,6 +332,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "004-cyclops-super",
     "image": "/cards/004-cyclops-super.png"
   },
@@ -404,6 +408,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "005-donald-trump",
     "image": "/cards/005-donald-trump.png"
   },
@@ -483,6 +488,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "006-dr-breen",
     "image": "/cards/006-dr-breen.png"
   },
@@ -565,6 +571,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "007-garen-crownguard",
     "image": "/cards/007-garen-crownguard.png"
   },
@@ -640,6 +647,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "008-jean-luc-picard",
     "image": "/cards/008-jean-luc-picard.png"
   },
@@ -722,6 +730,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "009-raiden",
     "image": "/cards/009-raiden.png"
   },
@@ -811,6 +820,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "010-soldier-tf2-super",
     "image": "/cards/010-soldier-tf2-super.png"
   },
@@ -899,6 +909,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "011-terra",
     "image": "/cards/011-terra.png"
   },
@@ -994,6 +1005,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "012-xehanort",
     "image": "/cards/012-xehanort.png"
   },
@@ -1037,6 +1049,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "013-citadel",
     "image": "/cards/013-citadel.png"
   },
@@ -1082,6 +1095,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "014-hyperversal-gate",
     "image": "/cards/014-hyperversal-gate.png"
   },
@@ -1125,6 +1139,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "015-x-tremists-unite",
     "image": "/cards/015-x-tremists-unite.png"
   },
@@ -1168,6 +1183,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "016-zero-hour",
     "image": "/cards/016-zero-hour.png"
   },
@@ -1241,6 +1257,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "017-cyclops-tactician",
     "image": "/cards/017-cyclops-tactician.png"
   },
@@ -1315,6 +1332,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "018-ebony-maw",
     "image": "/cards/018-ebony-maw.png"
   },
@@ -1393,6 +1411,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "019-lola-bunny",
     "image": "/cards/019-lola-bunny.png"
   },
@@ -1465,6 +1484,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "020-mark-rutte",
     "image": "/cards/020-mark-rutte.png"
   },
@@ -1539,6 +1559,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "021-ordinal",
     "image": "/cards/021-ordinal.png"
   },
@@ -1617,6 +1638,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "022-patlu",
     "image": "/cards/022-patlu.png"
   },
@@ -1705,6 +1727,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "023-squidward",
     "image": "/cards/023-squidward.png"
   },
@@ -1784,6 +1807,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "024-sylas",
     "image": "/cards/024-sylas.png"
   },
@@ -1863,6 +1887,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "025-vengeful-spectre",
     "image": "/cards/025-vengeful-spectre.png"
   },
@@ -1949,6 +1974,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "026-yoko-littner",
     "image": "/cards/026-yoko-littner.png"
   },
@@ -1990,6 +2016,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "027-copycats",
     "image": "/cards/027-copycats.png"
   },
@@ -2032,6 +2059,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "028-energy-reactor",
     "image": "/cards/028-energy-reactor.png"
   },
@@ -2073,6 +2101,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "029-planet-n8318",
     "image": "/cards/029-planet-n8318.png"
   },
@@ -2114,6 +2143,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "030-splinter-groups",
     "image": "/cards/030-splinter-groups.png"
   },
@@ -2156,6 +2186,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "031-suppression-protocol",
     "image": "/cards/031-suppression-protocol.png"
   },
@@ -2198,6 +2229,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "032-zephyr-strike",
     "image": "/cards/032-zephyr-strike.png"
   },
@@ -2263,6 +2295,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "033-antonije-pusic",
     "image": "/cards/033-antonije-pusic.png"
   },
@@ -2334,6 +2367,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "034-bob-ross",
     "image": "/cards/034-bob-ross.png"
   },
@@ -2407,6 +2441,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "035-cremator",
     "image": "/cards/035-cremator.png"
   },
@@ -2479,6 +2514,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "036-disaster-spectre",
     "image": "/cards/036-disaster-spectre.png"
   },
@@ -2547,6 +2583,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "037-elite",
     "image": "/cards/037-elite.png"
   },
@@ -2617,6 +2654,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "038-eminem",
     "image": "/cards/038-eminem.png"
   },
@@ -2694,6 +2732,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "039-engineer",
     "image": "/cards/039-engineer.png"
   },
@@ -2766,6 +2805,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "040-geert-wilders",
     "image": "/cards/040-geert-wilders.png"
   },
@@ -2829,6 +2869,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "041-kramer",
     "image": "/cards/041-kramer.png"
   },
@@ -2901,6 +2942,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "042-lawmaker",
     "image": "/cards/042-lawmaker.png"
   },
@@ -2972,6 +3014,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "043-marksman",
     "image": "/cards/043-marksman.png"
   },
@@ -3049,6 +3092,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "044-motu",
     "image": "/cards/044-motu.png"
   },
@@ -3126,6 +3170,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "045-murdoc-niccals",
     "image": "/cards/045-murdoc-niccals.png"
   },
@@ -3197,6 +3242,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "046-observing-spectre",
     "image": "/cards/046-observing-spectre.png"
   },
@@ -3264,6 +3310,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "047-peter-griffin",
     "image": "/cards/047-peter-griffin.png"
   },
@@ -3346,6 +3393,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "048-sniper",
     "image": "/cards/048-sniper.png"
   },
@@ -3418,6 +3466,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "049-stalker",
     "image": "/cards/049-stalker.png"
   },
@@ -3489,6 +3538,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "050-stanley-pines",
     "image": "/cards/050-stanley-pines.png"
   },
@@ -3566,6 +3616,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "051-stewie-griffin",
     "image": "/cards/051-stewie-griffin.png"
   },
@@ -3637,6 +3688,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "052-tech-specialist",
     "image": "/cards/052-tech-specialist.png"
   },
@@ -3707,6 +3759,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "053-tupac",
     "image": "/cards/053-tupac.png"
   },
@@ -3779,6 +3832,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "054-vale",
     "image": "/cards/054-vale.png"
   },
@@ -3820,6 +3874,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "055-clearmind",
     "image": "/cards/055-clearmind.png"
   },
@@ -3861,6 +3916,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "056-contract-with-the-tcr",
     "image": "/cards/056-contract-with-the-tcr.png"
   },
@@ -3901,6 +3957,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "057-incoming-warning",
     "image": "/cards/057-incoming-warning.png"
   },
@@ -3942,6 +3999,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "058-infiltration-strike",
     "image": "/cards/058-infiltration-strike.png"
   },
@@ -3983,6 +4041,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "059-inter-hyperversal-space",
     "image": "/cards/059-inter-hyperversal-space.png"
   },
@@ -4032,6 +4091,7 @@ export const GENERATED_CARDS = [
       "damage": "30",
       "effect": "If **[DR]** is 7 or higher, the equipped Unit does not become Exhausted."
     },
+    "completionCost": 3,
     "id": "060-oblique-blade",
     "image": "/cards/060-oblique-blade.png"
   },
@@ -4073,6 +4133,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "061-one-punch",
     "image": "/cards/061-one-punch.png"
   },
@@ -4114,6 +4175,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "062-overwatch-directive",
     "image": "/cards/062-overwatch-directive.png"
   },
@@ -4155,6 +4217,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "063-suppressing-fire",
     "image": "/cards/063-suppressing-fire.png"
   },
@@ -4196,6 +4259,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "064-transhuman-conditioning",
     "image": "/cards/064-transhuman-conditioning.png"
   },
@@ -4260,6 +4324,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "065-2d",
     "image": "/cards/065-2d.png"
   },
@@ -4312,6 +4377,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "066-andy-king",
     "image": "/cards/066-andy-king.png"
   },
@@ -4364,6 +4430,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "067-civilian",
     "image": "/cards/067-civilian.png"
   },
@@ -4416,6 +4483,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "068-cleaning-droid",
     "image": "/cards/068-cleaning-droid.png"
   },
@@ -4480,6 +4548,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "069-conscript",
     "image": "/cards/069-conscript.png"
   },
@@ -4555,6 +4624,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "070-demoman",
     "image": "/cards/070-demoman.png"
   },
@@ -4620,6 +4690,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "071-desert-droid",
     "image": "/cards/071-desert-droid.png"
   },
@@ -4674,6 +4745,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "072-grunt",
     "image": "/cards/072-grunt.png"
   },
@@ -4739,6 +4811,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "073-guard",
     "image": "/cards/073-guard.png"
   },
@@ -4803,6 +4876,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "074-junk-droid",
     "image": "/cards/074-junk-droid.png"
   },
@@ -4867,6 +4941,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "075-metrocop",
     "image": "/cards/075-metrocop.png"
   },
@@ -4919,6 +4994,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "076-mining-droid",
     "image": "/cards/076-mining-droid.png"
   },
@@ -4992,6 +5068,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "077-norm-of-the-north",
     "image": "/cards/077-norm-of-the-north.png"
   },
@@ -5056,6 +5133,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "078-pilot",
     "image": "/cards/078-pilot.png"
   },
@@ -5126,6 +5204,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "079-retrieval-machine",
     "image": "/cards/079-retrieval-machine.png"
   },
@@ -5180,6 +5259,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "080-rover",
     "image": "/cards/080-rover.png"
   },
@@ -5244,6 +5324,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "081-salesman",
     "image": "/cards/081-salesman.png"
   },
@@ -5296,6 +5377,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "082-scanner",
     "image": "/cards/082-scanner.png"
   },
@@ -5359,6 +5441,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "083-scout-droid",
     "image": "/cards/083-scout-droid.png"
   },
@@ -5424,6 +5507,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "084-sentry",
     "image": "/cards/084-sentry.png"
   },
@@ -5489,6 +5573,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "085-soldier",
     "image": "/cards/085-soldier.png"
   },
@@ -5559,6 +5644,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "086-soldier-tf2",
     "image": "/cards/086-soldier-tf2.png"
   },
@@ -5624,6 +5710,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "087-transport-droid",
     "image": "/cards/087-transport-droid.png"
   },
@@ -5689,6 +5776,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "088-trooper",
     "image": "/cards/088-trooper.png"
   },
@@ -5730,6 +5818,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "089-battle-medicine",
     "image": "/cards/089-battle-medicine.png"
   },
@@ -5771,6 +5860,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "090-deploy-armor",
     "image": "/cards/090-deploy-armor.png"
   },
@@ -5820,6 +5910,7 @@ export const GENERATED_CARDS = [
       "damage": "20+",
       "effect": "This attack deals 10 x **[DR]** more Damage."
     },
+    "completionCost": 3,
     "id": "091-herring-bandito",
     "image": "/cards/091-herring-bandito.png"
   },
@@ -5864,6 +5955,7 @@ export const GENERATED_CARDS = [
       "damage": "20",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "092-keltec-pr57",
     "image": "/cards/092-keltec-pr57.png"
   },
@@ -5905,6 +5997,7 @@ export const GENERATED_CARDS = [
       "damage": "",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "093-narrow-escape",
     "image": "/cards/093-narrow-escape.png"
   },
@@ -5949,6 +6042,7 @@ export const GENERATED_CARDS = [
       "damage": "30",
       "effect": ""
     },
+    "completionCost": 3,
     "id": "094-pulse-rifle",
     "image": "/cards/094-pulse-rifle.png"
   },
@@ -5996,6 +6090,7 @@ export const GENERATED_CARDS = [
       "damage": "N",
       "effect": "Target 1 Unit your Opponent controls. If **[DR]** is 5 or higher, the targeted Unit is afflicted with **Cowering**."
     },
+    "completionCost": 3,
     "id": "095-stun-baton",
     "image": "/cards/095-stun-baton.png"
   },
@@ -6045,6 +6140,7 @@ export const GENERATED_CARDS = [
       "damage": "30+",
       "effect": "If **[DR]** is 6, this attack deals 20 more Damage."
     },
+    "completionCost": 3,
     "id": "096-tcr-v02-strike-gun",
     "image": "/cards/096-tcr-v02-strike-gun.png"
   }

@@ -1,0 +1,1 @@
+{"version":1,"cardId":"039-cse-trooper","attacks":[{"id":"cse-trooper-suppressive-fire","effects":[{"op":"condition","target":"defender","condition":"weakened"}]}]}

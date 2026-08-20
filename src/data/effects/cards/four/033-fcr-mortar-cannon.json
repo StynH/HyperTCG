@@ -1,0 +1,1 @@
+{"version":1,"cardId":"033-fcr-mortar-cannon","attacks":[{"id":"fcr-mortar-cannon-indirect-fire"}],"utility":{"attach":{"zone":["vanguard","backguard"],"controller":"actor","kind":"unit","cardType":"Rebels"}}}

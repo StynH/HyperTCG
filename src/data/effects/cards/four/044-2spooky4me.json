@@ -1,0 +1,1 @@
+{"version":1,"cardId":"044-2spooky4me","utility":{"effects":[{"op":"choose","selector":{"zone":"deck","controller":"actor","kind":"unit","subtitle":"Spectre"},"store":"spectre","min":0,"max":1,"prompt":"Search for a Spectre."},{"op":"move","cards":"spectre","to":"hand"},{"op":"shuffle"}]}}
