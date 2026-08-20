@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getCard } from '../data/catalog';
+import type { AiDifficulty } from '../game/ai/types';
 import { describeCardModifiers } from '../game/effectRuntime';
 import { getDeckPreset } from '../game/deck';
 import { useGame } from '../game/useGame';
@@ -19,11 +20,12 @@ interface UnitSelection { address: BoardAddress; unit: UnitInPlay }
 interface GameAppProps {
   playerDeckId: string;
   opponentDeckId: string;
+  aiDifficulty: AiDifficulty;
   onExit: () => void;
 }
 
-export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) {
-  const game = useGame(playerDeckId, opponentDeckId);
+export function GameApp({ playerDeckId, opponentDeckId, aiDifficulty, onExit }: GameAppProps) {
+  const game = useGame(playerDeckId, opponentDeckId, aiDifficulty);
   const playerDeck = getDeckPreset(playerDeckId);
   const [hovered, setHovered] = useState<CardInstance | UnitInPlay | null>(null);
   const [selectedHand, setSelectedHand] = useState<CardInstance | null>(null);
@@ -48,7 +50,8 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
   const gameState = game.state;
   const { opponentStep } = game;
   useEffect(() => {
-    if (!gameState.isOpponentActing || gameState.winner !== null || gameState.pendingChoice) return;
+    const isAiDecision = gameState.isOpponentActing || gameState.pendingChoice?.player === 1;
+    if (!isAiDecision || gameState.winner !== null || gameState.pendingChoice?.player === 0) return;
     const overlayPending = gameState.lastRoll !== null && gameState.lastRoll.sequence !== dismissedSeq;
     if (overlayPending) return;
     const timer = window.setTimeout(opponentStep, 700);
@@ -56,7 +59,7 @@ export function GameApp({ playerDeckId, opponentDeckId, onExit }: GameAppProps) 
   }, [gameState, dismissedSeq, opponentStep]);
   const you = game.state.players[0];
   const canAct = game.state.activePlayer === 0 && !game.state.isOpponentActing
-    && game.state.winner === null && !game.state.pendingMulligan;
+    && game.state.winner === null && !game.state.pendingMulligan && !game.state.pendingChoice;
   const canUseHand = game.state.winner === null && !game.state.pendingChoice
     && (canAct || you.hand.some((instance) => getCard(instance.cardId).kind === 'utility' && getCard(instance.cardId).utilityType === 'free'));
   const selectedHandCard = selectedHand ? getCard(selectedHand.cardId) : null;

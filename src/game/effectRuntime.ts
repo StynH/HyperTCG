@@ -928,7 +928,9 @@ function finalizeVanquish(
     state.lastRoll.combat.defender.vanquished = true;
   }
   if (definition.kind === 'unit') enforceVanguard(state, location.player);
-  if (definition.kind !== 'unit') return;
+  // Energy still dispatches the vanquished event (e.g. Project Parabellum draws off it);
+  // only the unit-specific surplus backlash below is gated to Units by its `surplus > 0` guard.
+  if (definition.kind !== 'unit' && definition.kind !== 'energy') return;
   const surplus = Math.max(0, operation.surplus ?? 0);
   if (surplus > 0) {
     const isSuper = definition.unitTreatment === 'super';
@@ -1103,6 +1105,51 @@ function matchingReactions(
   return matches;
 }
 
+function eventCardName(state: GameState, id: string | undefined): string | null {
+  if (!id) return null;
+  const location = locateCard(state, id);
+  if (!location) return null;
+  const instance = cardAt(state, location);
+  return instance ? getCard(instance.cardId).name : null;
+}
+
+// A human-readable sentence describing what opened a reaction window, from the
+// reacting player's perspective (player 0). Keeps the confusing generic prompt
+// only as a last resort.
+function describeReactionEvent(state: GameState, event: EffectEvent, reactingPlayer: PlayerId): string {
+  const belonging = (id: string | undefined) => {
+    const location = id ? locateCard(state, id) : null;
+    if (!location) return '';
+    return location.player === reactingPlayer ? 'your ' : "the opponent's ";
+  };
+  const source = eventCardName(state, event.sourceId);
+  const target = eventCardName(state, event.targetId);
+  const damage = event.amount ? ` for ${event.amount} Damage` : '';
+  const critical = event.critical ? ' (Critical Hit)' : '';
+  switch (event.name) {
+    case 'attack-targeted':
+    case 'attack-declared':
+      return `${source ?? 'A Unit'} is attacking ${belonging(event.targetId)}${target ?? 'a Unit'}${damage}${critical}.`;
+    case 'would-vanquish':
+      return `${belonging(event.targetId)}${target ?? source ?? 'a Unit'} is about to be Vanquished${damage}.`;
+    case 'unit-vanquished':
+      return `${belonging(event.targetId)}${target ?? source ?? 'A Unit'} was Vanquished.`;
+    case 'condition-afflicted':
+      return `${belonging(event.targetId)}${target ?? 'a Unit'} is being afflicted with a Condition.`;
+    case 'unit-rotated':
+      return `${belonging(event.sourceId)}${source ?? 'A Unit'} was Rotated.`;
+    case 'critical-defense':
+      return `${belonging(event.sourceId)}${source ?? 'A Unit'} scored a Critical Defense.`;
+    case 'played':
+      return `${belonging(event.sourceId)}${source ?? 'A card'} was played.`;
+    case 'construction-advanced':
+    case 'construction-done':
+      return `${belonging(event.sourceId)}${source ?? 'a Construction'} advanced.`;
+    default:
+      return 'A reaction window is open.';
+  }
+}
+
 function dispatchEvent(
   state: GameState,
   event: EffectEvent,
@@ -1135,27 +1182,24 @@ function dispatchEvent(
   const reactions = matchingReactions(state, event, continuation);
   if (!reactions.length) return;
   const human = reactions.filter(({ player }) => player === 0);
-  if (human.length) {
-    const options: ChoiceOption[] = [
-      { id: 'pass', label: 'Pass priority' },
-      ...human.map(({ instance }) => ({ id: instance.instanceId, label: 'Play ' + getCard(instance.cardId).name, cardId: instance.cardId })),
-    ];
-    state.pendingChoice = {
-      id: 'choice-' + (++state.actionSequence),
-      player: 0,
-      prompt: 'A reaction window is open.',
-      min: 1,
-      max: 1,
-      ordered: false,
-      options,
-      store: '__reaction',
-      event,
-      continuation,
-    };
-    return;
-  }
-  const reaction = reactions[0];
-  playReaction(state, continuation, reaction.player, reaction.instance.instanceId, event);
+  const reactingPlayer = human.length ? 0 : reactions[0].player;
+  const available = reactions.filter(({ player }) => player === reactingPlayer);
+  const options: ChoiceOption[] = [
+    { id: 'pass', label: 'Pass priority' },
+    ...available.map(({ instance }) => ({ id: instance.instanceId, label: 'Play ' + getCard(instance.cardId).name, cardId: instance.cardId })),
+  ];
+  state.pendingChoice = {
+    id: 'choice-' + (++state.actionSequence),
+    player: reactingPlayer,
+    prompt: describeReactionEvent(state, event, reactingPlayer),
+    min: 1,
+    max: 1,
+    ordered: false,
+    options,
+    store: '__reaction',
+    event,
+    continuation,
+  };
 }
 
 function playReaction(
@@ -1198,7 +1242,7 @@ function offerEffectDieActions(state: GameState, continuation: EffectContinuatio
       return [{ sourceId, ability }];
     });
   });
-  if (!actions.length || player !== 0) return;
+  if (!actions.length) return;
   state.pendingChoice = {
     id: 'choice-' + (++state.actionSequence),
     player,
@@ -1251,10 +1295,6 @@ function executeOperation(
       });
       const min = Math.min(operation.min ?? 1, candidates.length);
       const max = Math.min(operation.max ?? 1, candidates.length);
-      if (context.actor === 1) {
-        continuation.vars[operation.store] = candidates.slice(0, Math.max(min, max));
-        return;
-      }
       state.pendingChoice = {
         id: 'choice-' + (++state.actionSequence),
         player: context.actor,
@@ -1274,10 +1314,6 @@ function executeOperation(
       const linkedCount = operation.countFrom ? idsFromRef(context, operation.countFrom).length : undefined;
       const min = Math.min(linkedCount ?? operation.min ?? 1, options.length);
       const max = Math.min(linkedCount ?? operation.max ?? 1, options.length);
-      if (context.actor === 1) {
-        continuation.vars[operation.store] = options.slice(0, Math.max(min, max)).map(({ id }) => id);
-        return;
-      }
       state.pendingChoice = {
         id: 'choice-' + (++state.actionSequence),
         player: context.actor,

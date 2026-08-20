@@ -58,6 +58,8 @@ if (options.help) {
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, appType: 'custom' });
 try {
   const { runEngineSelfTests } = await server.ssrLoadModule('/src/game/engine.testHarness.ts');
+  const { runActionSelfTests } = await server.ssrLoadModule('/src/game/actions.testHarness.ts');
+  const { runAiSelfTests } = await server.ssrLoadModule('/src/game/ai/ai.testHarness.ts');
   const { runCardConditionTests } = await server.ssrLoadModule('/src/campaign/cardCondition.testHarness.ts');
   const cardHarness = await server.ssrLoadModule('/src/game/cardTests/cardTestHarness.ts');
 
@@ -77,6 +79,8 @@ try {
     const coreResults = shouldRunCore
       ? [
         ...runEngineSelfTests().map((result) => ({ suiteId: 'engine', file: 'src/game/engine.testHarness.ts', ...result })),
+        ...runActionSelfTests().map((result) => ({ suiteId: 'actions', file: 'src/game/actions.testHarness.ts', ...result })),
+        ...runAiSelfTests().map((result) => ({ suiteId: 'ai', file: 'src/game/ai/ai.testHarness.ts', ...result })),
         ...runCardConditionTests().map((result) => ({ suiteId: 'campaign-card-condition', file: 'src/campaign/cardCondition.testHarness.ts', ...result })),
       ]
       : [];

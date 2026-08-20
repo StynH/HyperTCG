@@ -1,5 +1,7 @@
 import { useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { ENERGY_META, getCard } from '../data/catalog';
+import { AI_DIFFICULTIES } from '../game/ai/difficulty';
+import type { AiDifficulty } from '../game/ai/types';
 import {
   DECK_PRESETS, getDeckCardCount, getDeckEnergyCounts, getDeckPreset, getOpponentDeckId,
 } from '../game/deck';
@@ -8,7 +10,9 @@ import { LogoGlyph, MakerEnergyOrb } from './MakerGraphics';
 
 interface MainMenuProps {
   selectedDeckId: string;
+  aiDifficulty: AiDifficulty;
   onSelectDeck: (deckId: string) => void;
+  onSelectAiDifficulty: (difficulty: AiDifficulty) => void;
   onStart: () => void;
   onOpenCampaign: () => void;
 }
@@ -35,7 +39,9 @@ function Complexity({ value }: { value: 1 | 2 | 3 }) {
   );
 }
 
-export function MainMenu({ selectedDeckId, onSelectDeck, onStart, onOpenCampaign }: MainMenuProps) {
+export function MainMenu({
+  selectedDeckId, aiDifficulty, onSelectDeck, onSelectAiDifficulty, onStart, onOpenCampaign,
+}: MainMenuProps) {
   const selectedDeck = getDeckPreset(selectedDeckId);
   const opponentDeck = getDeckPreset(getOpponentDeckId(selectedDeckId));
   const energyCounts = getDeckEnergyCounts(selectedDeck);
@@ -152,6 +158,22 @@ export function MainMenu({ selectedDeckId, onSelectDeck, onStart, onOpenCampaign
 
           <div className="launch-panel">
             <div><small>OPPONENT</small><strong>{opponentDeck.name}</strong><span>Computer-controlled deck</span></div>
+            <fieldset className="difficulty-selector">
+              <legend>AI LEVEL</legend>
+              <div>
+                {AI_DIFFICULTIES.map((difficulty) => (
+                  <button
+                    key={difficulty.id}
+                    type="button"
+                    aria-pressed={difficulty.id === aiDifficulty}
+                    onClick={() => onSelectAiDifficulty(difficulty.id)}
+                  >
+                    {difficulty.name}
+                  </button>
+                ))}
+              </div>
+              <p>{AI_DIFFICULTIES.find(({ id }) => id === aiDifficulty)?.description}</p>
+            </fieldset>
             <button type="button" onClick={onStart}><span>START MATCH</span><small>Play solo</small><b aria-hidden="true">→</b></button>
           </div>
         </section>

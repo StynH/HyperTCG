@@ -39,7 +39,7 @@ function run(name: string, test: () => void): TestResult {
 export function runEngineSelfTests(): TestResult[] {
   return [
     run('builds fifteen legal 60-card presets and shuffles the entire deck', () => {
-      expect(DECK_PRESETS.length === 11, 'Expected exactly eleven deck presets');
+      expect(DECK_PRESETS.length === 15, 'Expected exactly fifteen deck presets');
       for (const preset of DECK_PRESETS) {
         validateDeckPreset(preset);
         const firstShuffle = createDeck(101, preset.id);

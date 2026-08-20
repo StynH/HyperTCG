@@ -23,7 +23,8 @@ Then open `http://127.0.0.1:4173`.
 - Energy grouped by type as compact ready/total counters
 - Ready, Exhausted, Rotation, first-turn restrictions, and forced Vanguard refill
 - Critical d20 attacks and d100 Defense Checks
-- A deterministic training opponent for solo play
+- A generic rules-driven opponent that evaluates every legal play, target, ability, reaction, and attack
+- Fair known-deck belief sampling and selectable Initiate, Challenger, and Veteran search levels
 - Persistent full-card detail inspection for cards in hand and on the battlefield
 
 Every Base Set effect is executable through a generic JSON interpreter: activated

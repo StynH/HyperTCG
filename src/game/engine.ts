@@ -209,22 +209,33 @@ export function unitPlacementError(state: GameState, address: BoardAddress): str
   return null;
 }
 
-export function playUnit(state: GameState, address: BoardAddress, instanceId: string): GameResult {
+export function playUnitActionError(state: GameState, address: BoardAddress, instanceId: string): string | null {
   const blocked = actionBlocked(state);
-  if (blocked) return { state, error: blocked };
-  if (state.activePlayer !== address.player || state.winner !== null) return { state, error: 'It is not your turn.' };
+  if (blocked) return blocked;
+  if (state.activePlayer !== address.player || state.winner !== null) return 'It is not your turn.';
+  const player = state.players[address.player];
+  const placementError = unitPlacementError(state, address);
+  if (placementError) return placementError;
+  const held = player.hand.find((item) => item.instanceId === instanceId);
+  if (!held) return 'That card is no longer in your hand.';
+  const card = getCard(held.cardId);
+  if (card.kind !== 'unit') return 'Only Units can enter a Unit position.';
+  if (card.unitTreatment === 'super' && [...player.vanguard, ...player.backguard].some((unit) => unit && getCard(unit.cardId).unitTreatment === 'super')) {
+    return 'You can control only one SUPER Unit.';
+  }
+  const paymentState = cloneState(state);
+  if (!payCardCost(paymentState, address.player, card.id, 'play')) return 'You do not have the required Ready Energy.';
+  return null;
+}
+
+export function playUnit(state: GameState, address: BoardAddress, instanceId: string): GameResult {
+  const unavailable = playUnitActionError(state, address, instanceId);
+  if (unavailable) return { state, error: unavailable };
   const next = cloneState(state);
   const player = next.players[address.player];
-  const placementError = unitPlacementError(next, address);
-  if (placementError) return { state, error: placementError };
-  const held = player.hand.find((item) => item.instanceId === instanceId);
-  if (!held) return { state, error: 'That card is no longer in your hand.' };
+  const held = player.hand.find((item) => item.instanceId === instanceId)!;
   const card = getCard(held.cardId);
-  if (card.kind !== 'unit') return { state, error: 'Only Units can enter a Unit position.' };
-  if (card.unitTreatment === 'super' && [...player.vanguard, ...player.backguard].some((unit) => unit && getCard(unit.cardId).unitTreatment === 'super')) {
-    return { state, error: 'You can control only one SUPER Unit.' };
-  }
-  if (!payCardCost(next, address.player, card.id, 'play')) return { state, error: 'You do not have the required Ready Energy.' };
+  payCardCost(next, address.player, card.id, 'play');
   const removed = removeFromHand(player, instanceId)!;
   player[address.row][address.index] = {
     ...removed,
@@ -435,6 +446,24 @@ export function attackActionError(state: GameState, source: BoardAddress, attack
   if (source.row === 'backguard' && option.attack.damage !== 'BG') return 'Only BG attacks may be used from the Backguard.';
   if (!paymentForCost(state, source.player, option.attack.cost)) return 'You do not have the required Ready Energy.';
   return null;
+}
+
+export function availableAttackTargets(
+  state: GameState,
+  source: BoardAddress,
+  attackIndex: number,
+): Array<BoardAddress | null> {
+  if (attackActionError(state, source, attackIndex)) return [];
+  const attacker = state.players[source.player][source.row][source.index]!;
+  const option = availableAttacks(state, attacker.instanceId)[attackIndex];
+  if (!isDamagingAttack(option.attack)) return [null];
+  const defender = otherPlayer(source.player);
+  const reachesBackguard = hasModifier(state, attacker.instanceId, null, 'can-target-backguard');
+  const rows: readonly RowName[] = reachesBackguard ? ['vanguard', 'backguard'] : ['vanguard'];
+  const targets = rows.flatMap((row) => state.players[defender][row].flatMap((unit, index) => (
+    unit ? [{ player: defender, row, index }] : []
+  )));
+  return targets.length > 0 ? targets : [null];
 }
 
 export function useAttack(
@@ -776,16 +805,20 @@ export function runOpponentStep(state: GameState, random: () => number = secureR
   }
 }
 
-export function endPlayerTurn(state: GameState, random: () => number = secureRandom): GameResult {
+export function endTurn(state: GameState, playerId: PlayerId, random: () => number = secureRandom): GameResult {
   const blocked = actionBlocked(state);
   if (blocked) return { state, error: blocked };
-  if (state.activePlayer !== 0 || state.winner !== null) return { state, error: 'You cannot end the turn now.' };
+  if (state.activePlayer !== playerId || state.winner !== null) return { state, error: 'That player cannot end the turn now.' };
   const next = cloneState(state);
-  processTurnEnd(next, 0, random);
-  next.players[0].hasTakenFirstTurn = true;
+  processTurnEnd(next, playerId, random);
+  next.players[playerId].hasTakenFirstTurn = true;
   if (next.winner === null) {
-    next.pendingTurn = 1;
+    next.pendingTurn = otherPlayer(playerId);
     if (!next.pendingChoice) completePendingTurn(next, random);
   }
   return { state: next };
+}
+
+export function endPlayerTurn(state: GameState, random: () => number = secureRandom): GameResult {
+  return endTurn(state, 0, random);
 }

@@ -103,7 +103,8 @@ uses these narrow defaults until the SSOT resolves them:
 - forced Vanguard promotion uses the first occupied Backguard position, even if the
   Unit is Exhausted;
 - each defined event opens one Free Effect response choice before queued triggers
-  continue; the deterministic opponent uses its first legal response;
+  continue; either player may pass or choose a legal response, and the AI evaluates
+  those responses through the same action interface as every other decision;
 - there is no universal SUPER defeat penalty because none is defined;
 - a turn readies cards, resolves start-of-turn Conditions, allows actions, resolves
   end-of-turn Conditions, and passes to the opponent.

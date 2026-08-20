@@ -1,6 +1,6 @@
 # Hyperverse TCG — Generic, Believable AI Architecture
 
-**Status:** implementation design  
+**Status:** implementation in progress — canonical actions, two-sided belief sampling, generic profiles, mulligans, shallow search, and difficulty controls are playable
 **Date:** 2026-08-20  
 **Scope:** solo opponent, automated playtesting, and a reusable decision engine for arbitrary legal decks  
 **Repository sources of truth:** [rules](./Hyperverse_TCG_Rules_SSOT_2026-08-12.md), [effect scripting](./EFFECT_SCRIPTS.md), [engine](../src/game/engine.ts), [runtime types](../src/game/types.ts), and [effect vocabulary](../src/game/effectTypes.ts)
@@ -64,9 +64,9 @@ The AI is successful when players describe it as thoughtful, readable, fair, and
 - fake thinking time after the decision is already visible;
 - rubber-banding that secretly changes draws, rolls, card costs, or available information.
 
-## 3. Current implementation audit
+## 3. Legacy baseline and current implementation
 
-The current opponent is a deterministic action pipeline in `runOpponentTurn` and `runOpponentStep` in [engine.ts](../src/game/engine.ts):
+The replaced baseline is a deterministic action pipeline in `runOpponentTurn` and `runOpponentStep` in [engine.ts](../src/game/engine.ts):
 
 1. play the first Energy in hand;
 2. play the first affordable Unit into the first open Vanguard slot, otherwise Backguard;
@@ -78,9 +78,11 @@ The current opponent is a deterministic action pipeline in `runOpponentTurn` and
 
 The UI advances this pipeline one visible step every 700 ms. That pacing mechanism is useful and should stay, but it is presentation—not intelligence.
 
-### Current capability gaps
+The legacy functions remain temporarily for regression coverage, but player-facing matches no longer call them. The UI now advances `runStrategicOpponentStep` one visible action every 700 ms. The controller samples hidden cards from the selected public deck list, scores multiple chance outcomes, searches several alternating decisions, commits one live action, and replans.
 
-| Area | Current behavior | Required behavior |
+### Baseline capability comparison
+
+| Area | Legacy behavior | Required behavior |
 |---|---|---|
 | Turn planning | Fixed stage order | Search arbitrary legal sequences through End Turn |
 | Energy | First Energy | Consider color demand, flexibility, current hand, and future curve |
@@ -98,18 +100,16 @@ The UI advances this pipeline one visible step every 700 ms. That pacing mechani
 | Difficulty | One behavior | Calibrated search/selection profiles with the same rules and information |
 | Diagnostics | Game log only | Reproducible decision trace, candidate values, budget, and belief summary |
 
-### Important engine blockers
+### Remaining implementation gaps
 
-These are prerequisites, not optional AI polish:
+Canonical actions, mulligans, AI-owned choices, reactions, Effect Die actions, legal targets, fair known-list sampling, generic deck profiles, deterministic traces, and selectable difficulty budgets are implemented. The remaining gaps are:
 
-- `GameState` mixes authoritative match state with UI/AI orchestration fields such as `isOpponentActing` and `opponentStage`.
-- There is no single `listLegalActions(state, player)` contract. Legality is distributed across UI queries and action-specific error functions.
-- `pendingChoice` is a separate mode that `runOpponentStep` refuses to enter. AI-created target/search/order choices can therefore stop automated play.
-- AI Free Effect reactions automatically use the first legal response; pass and alternative reactions are not evaluated.
-- Effect Die activated actions are currently offered only to player 0.
-- The AI cannot mulligan.
-- Simulation can use `structuredClone` and injected randomness, but it also builds presentation logs and mutates counters on every rollout. Correctness is more important initially; a headless mode should be added only after profiling.
-- Several rules remain explicitly undecided in the SSOT, especially the full turn sequence, reaction priority, exact decking trigger, and some forced movement/equipment cases. Search magnifies rule ambiguity because it deliberately explores edge cases.
+- `GameState` still mixes authoritative rules with presentation fields such as `isOpponentActing` and the now-legacy `opponentStage`.
+- Belief state is reconstructed per decision; persistent memory for temporarily revealed cards is not yet modeled.
+- The current bounded minimax scaffold is not yet full information-set MCTS with availability counts, tree reuse, or synergy-guided rollouts.
+- Search still runs synchronously on the UI thread and simulations still construct presentation logs; a cancellable worker and headless simulation mode remain necessary for larger budgets.
+- The old fixed opponent functions remain in `engine.ts` until tournament parity and all calling tests are migrated.
+- Several rules remain explicitly undecided in the SSOT, especially full reaction priority and some forced movement/equipment cases. Search deliberately reaches these edge cases more often.
 
 ## 4. Research synthesis
 

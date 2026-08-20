@@ -1,21 +1,31 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { getCard } from '../data/catalog';
 import {
   activateAbility, advanceConstruction, advanceConstructionActionError, attackActionError,
   availableActivatedAbilities, availableAttacks, chooseEffect, createGame, endPlayerTurn,
   mulliganOpeningHand, playEnergy, playEnergyActionError, playUnit, playUtility,
-  playUtilityActionError, rotateUnit, rotateUnitActionError, runOpponentStep, useAttack,
+  playUtilityActionError, rotateUnit, rotateUnitActionError, useAttack,
 } from './engine';
+import { mulliganStrategicOpeningHand, runStrategicOpponentStep } from './ai/strategicOpponent';
+import type { AiDifficulty } from './ai/types';
+import { getDeckPreset } from './deck';
 import type { BoardAddress, GameResult, GameState } from './types';
 
-export function useGame(playerDeckId: string, opponentDeckId: string) {
+export function useGame(playerDeckId: string, opponentDeckId: string, aiDifficulty: AiDifficulty) {
   const createSelectedGame = useCallback(
     () => createGame({ playerDeckId, opponentDeckId }),
     [opponentDeckId, playerDeckId],
   );
+  const opponentSearchOptions = useMemo(() => ({
+    knownPlayerDeck: getDeckPreset(playerDeckId).entries,
+    aiDeck: getDeckPreset(opponentDeckId).entries,
+    difficulty: aiDifficulty,
+  }), [aiDifficulty, opponentDeckId, playerDeckId]);
   const [state, setState] = useState<GameState>(createSelectedGame);
   const [notice, setNotice] = useState('Choose up to three opening cards to mulligan, or keep all seven.');
-  const opponentStep = useCallback(() => setState((current) => runOpponentStep(current)), []);
+  const opponentStep = useCallback(() => setState((current) => (
+    runStrategicOpponentStep(current, opponentSearchOptions)
+  )), [opponentSearchOptions]);
 
   const apply = useCallback((result: GameResult, successNotice = 'Done.') => {
     if (result.error) {
@@ -33,12 +43,16 @@ export function useGame(playerDeckId: string, opponentDeckId: string) {
     setNotice,
     opponentStep,
     reset: () => { setState(createSelectedGame()); setNotice('Choose up to three opening cards to mulligan, or keep all seven.'); },
-    mulligan: (selectedIds: readonly string[]) => apply(
-      mulliganOpeningHand(state, selectedIds),
-      selectedIds.length === 0
-        ? 'Opening hand kept. Your first turn begins.'
-        : `Mulligan complete. Replaced ${selectedIds.length} card${selectedIds.length === 1 ? '' : 's'}.`,
-    ),
+    mulligan: (selectedIds: readonly string[]) => {
+      const humanResult = mulliganOpeningHand(state, selectedIds);
+      if (humanResult.error) return apply(humanResult);
+      return apply(
+        { state: mulliganStrategicOpeningHand(humanResult.state, opponentSearchOptions) },
+        selectedIds.length === 0
+          ? 'Opening hands kept. Your first turn begins.'
+          : `Mulligan complete. Replaced ${selectedIds.length} card${selectedIds.length === 1 ? '' : 's'}.`,
+      );
+    },
     playEnergy: (instanceId: string) => apply(playEnergy(state, 0, instanceId), 'Energy played.'),
     playUnit: (address: BoardAddress, instanceId: string) => apply(playUnit(state, address, instanceId), 'Unit played.'),
     playUtility: (instanceId: string) => apply(playUtility(state, 0, instanceId), 'Utility played.'),
