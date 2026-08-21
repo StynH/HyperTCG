@@ -1,11 +1,15 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import {
-  BOOSTER_DEFINITIONS, openBooster, type BoosterCard, type BoosterDefinition, type OpenedBooster,
+  BOOSTER_CARD_COUNT, BOOSTER_COMMON_COUNT, BOOSTER_DEFINITIONS, BOOSTER_UNCOMMON_COUNT,
+  openBooster, type BoosterCard, type BoosterDefinition, type OpenedBooster,
 } from '../campaign/boosters';
 import {
   canPurchaseBooster, HAS_UNLIMITED_CELESTIAL_CREDITS, loadCampaignProfile,
   purchaseBoosters, saveCampaignProfile, type CampaignProfile,
 } from '../campaign/profile';
+import {
+  formatCelestialCredits, getRawCardValueWithTreatmentCc, getRawPriceTreatmentLabels,
+} from '../campaign/cardPricing';
 import { LogoGlyph } from './MakerGraphics';
 import { CampaignCollection } from './CampaignCollection';
 import { CardDisplay, SET_LOGOS } from './SetStamp';
@@ -44,7 +48,7 @@ function PackArt({ booster, isCompact = false }: { booster: BoosterDefinition; i
         <i />
       </div>
       <strong>{booster.shortName}</strong>
-      <small>{booster.id} · 10 CARDS</small>
+      <small>{booster.id} · {BOOSTER_CARD_COUNT} CARDS</small>
       <span className="pack-crimp bottom" />
     </div>
   );
@@ -70,20 +74,26 @@ function BoosterProduct({
     '--pack-accent-soft': booster.accentSoft,
   } as CSSProperties;
   return (
-    <article className={`booster-product set-${booster.id.toLowerCase()}`} style={style}>
-      <div className="product-art"><span className="pack-aura" aria-hidden="true" /><PackArt booster={booster} isCompact /></div>
+    <article className={`booster-product set-${booster.id.toLowerCase()}`} style={style} aria-labelledby={`${booster.id}-booster-title`}>
+      <div className="product-art">
+        <div className="product-art-label"><span>{booster.id}</span><small>SEALED BOOSTER</small></div>
+        <div className="product-art-value"><strong>{BOOSTER_CARD_COUNT}</strong><span>CARDS<br />INSIDE</span></div>
+        <span className="pack-aura" aria-hidden="true" />
+        <span className="pack-pedestal" aria-hidden="true" />
+        <PackArt booster={booster} isCompact />
+      </div>
       <div className="product-copy">
         <span>{booster.id} SET</span>
-        <h2>{booster.name}</h2>
+        <h2 id={`${booster.id}-booster-title`}>{booster.name}</h2>
         <p>{booster.description}</p>
-        <dl>
-          <div><dt>COMMON</dt><dd>6</dd></div>
-          <div><dt>UNCOMMON</dt><dd>3</dd></div>
+        <dl aria-label="Guaranteed cards by rarity">
+          <div><dt>COMMON</dt><dd>{BOOSTER_COMMON_COUNT}</dd></div>
+          <div><dt>UNCOMMON</dt><dd>{BOOSTER_UNCOMMON_COUNT}</dd></div>
           <div><dt>PREMIUM</dt><dd>1</dd></div>
         </dl>
         <div className="pack-purchase-controls">
-          <div className="pack-quantity" aria-label="Booster quantity">
-            <span>PACKS</span>
+          <div className="pack-quantity" role="group" aria-label={`${booster.name} booster quantity`}>
+            <span><b>QUANTITY</b><small>{quantity === maximumAffordableQuantity ? 'MAX SELECTED' : `UP TO ${maximumAffordableQuantity} PACKS`}</small></span>
             <div>
               <button type="button" aria-label="Buy one fewer booster" disabled={quantity === 1} onClick={() => setQuantity((value) => Math.max(1, value - 1))}>−</button>
               <strong aria-live="polite">{quantity}</strong>
@@ -91,8 +101,9 @@ function BoosterProduct({
             </div>
           </div>
           <button className="buy-boosters" type="button" disabled={!canAfford} onClick={() => onPurchase(booster, quantity)}>
-            <span>{canAfford ? `BUY ${quantity} ${quantity === 1 ? 'BOOSTER' : 'BOOSTERS'}` : `NEED ${totalPrice - credits} MORE CC`}</span>
-            <b><CreditMark /> {totalPrice}</b>
+            <span><small>OPEN AFTER PURCHASE</small>{canAfford ? `BUY ${quantity} ${quantity === 1 ? 'BOOSTER' : 'BOOSTERS'}` : `NEED ${totalPrice - credits} MORE CC`}</span>
+            <b><small>TOTAL</small><span><CreditMark /> {totalPrice}</span></b>
+            <i aria-hidden="true">→</i>
           </button>
         </div>
       </div>
@@ -106,32 +117,40 @@ function rarityLabel(rarity: BoosterCard['rarity']): string {
   return rarity[0].toUpperCase() + rarity.slice(1);
 }
 
+function rawCardMarketLabel(reward: BoosterCard): string {
+  const treatments = getRawPriceTreatmentLabels(reward.card, reward.stamped);
+  return [rarityLabel(reward.rarity), ...treatments].join(' · ');
+}
+
 function CurrentCard({
   reward,
   index,
+  totalCards,
   isFaceUp,
   onActivate,
 }: {
   reward: BoosterCard;
   index: number;
+  totalCards: number;
   isFaceUp: boolean;
   onActivate: () => void;
 }) {
+  const isPremium = index === totalCards - 1;
   return (
     <button
-      className={`opening-card rarity-${reward.rarity} ${isFaceUp ? 'face-up' : ''} ${index === 9 ? 'premium-card' : ''}`}
+      className={`opening-card rarity-${reward.rarity} ${isFaceUp ? 'face-up' : ''} ${isPremium ? 'premium-card' : ''}`}
       type="button"
       onClick={onActivate}
       aria-label={isFaceUp
-        ? `${reward.card.name}, ${rarityLabel(reward.rarity)}. ${index === 9 ? 'Finish opening' : 'Continue to the next card'}`
-        : `Flip card ${index + 1} of 10`}
+        ? `${reward.card.name}, ${rarityLabel(reward.rarity)}. ${isPremium ? 'Finish opening' : 'Continue to the next card'}`
+        : `Flip card ${index + 1} of ${totalCards}`}
     >
       <span className="opening-card-inner">
         <span className="opening-card-back">
           <i className="card-back-orbit" aria-hidden="true" />
           <LogoGlyph size={72} />
-          <strong>{index === 9 ? 'PREMIUM CARD' : 'HYPERVERSE'}</strong>
-          <small>{index === 9 ? 'RARITY HIDDEN' : `CARD ${String(index + 1).padStart(2, '0')} OF 10`}</small>
+          <strong>{isPremium ? 'PREMIUM CARD' : 'HYPERVERSE'}</strong>
+          <small>{isPremium ? 'RARITY HIDDEN' : `CARD ${String(index + 1).padStart(2, '0')} OF ${totalCards}`}</small>
         </span>
         <CardDisplay
           image={reward.card.image}
@@ -148,14 +167,15 @@ function CurrentCard({
 }
 
 function HaulFan({ cards }: { cards: OpenedBooster['cards'] }) {
+  const centerIndex = (cards.length - 1) / 2;
   return (
-    <div className="haul-fan" aria-label="All 10 cards from this booster">
+    <div className="haul-fan" aria-label={`All ${cards.length} cards from this booster`}>
       {cards.map((reward, index) => {
-        const distanceFromCenter = Math.abs(index - 4.5);
+        const distanceFromCenter = Math.abs(index - centerIndex);
         const style = {
-          '--fan-x': `${(index - 4.5) * 62}px`,
+          '--fan-x': `${(index - centerIndex) * 62}px`,
           '--fan-y': `${distanceFromCenter * 9}px`,
-          '--fan-rotation': `${(index - 4.5) * 3.4}deg`,
+          '--fan-rotation': `${(index - centerIndex) * 3.4}deg`,
           '--fan-order': index + 1,
         } as CSSProperties;
         return (
@@ -237,13 +257,13 @@ function BulkOpeningChamber({
       <section className="bulk-pack-stage" aria-labelledby="selected-pack-title" aria-live="polite">
         <header>
           <div><span>VIEWING PACK {selectedPackIndex + 1} OF {openedBoosters.length}</span><h2 id="selected-pack-title">{booster.name}</h2></div>
-          <div className={`bulk-pack-premium rarity-${selectedBooster.premiumRarity}`}><span>PREMIUM PULL</span><strong>{selectedBooster.cards[9].card.name}</strong></div>
+          <div className={`bulk-pack-premium rarity-${selectedBooster.premiumRarity}`}><span>PREMIUM PULL</span><strong>{selectedBooster.cards[selectedBooster.cards.length - 1].card.name}</strong></div>
         </header>
         <div className="bulk-reward-grid">
           {selectedBooster.cards.map((reward, cardIndex) => (
           <article className={`bulk-reward rarity-${reward.rarity}`} key={`${selectedPackIndex}-${cardIndex}-${reward.card.id}`}>
             <CardDisplay image={reward.card.image} alt={reward.card.name} setId={reward.card.setId} isStamped={reward.stamped} />
-            <div><span>{rarityLabel(reward.rarity)}</span><strong>{reward.card.name}</strong></div>
+            <div><span>{rawCardMarketLabel(reward)} · {formatCelestialCredits(getRawCardValueWithTreatmentCc(reward.card, reward.stamped))}</span><strong>{reward.card.name}</strong></div>
           </article>
           ))}
         </div>
@@ -273,6 +293,9 @@ function OpeningChamber({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFaceUp, setIsFaceUp] = useState(false);
   const isComplete = currentIndex === openedBooster.cards.length;
+  const cardCount = openedBooster.cards.length;
+  const premiumIndex = cardCount - 1;
+  const isPremiumTurn = currentIndex === premiumIndex;
   const currentReward = openedBooster.cards[Math.min(currentIndex, openedBooster.cards.length - 1)];
   const style = {
     '--pack-accent': booster.accent,
@@ -284,7 +307,7 @@ function OpeningChamber({
     return (
       <main className="opening-chamber sealed" id="campaign-content" style={style}>
         <div className="opening-radiance" aria-hidden="true"><i /><i /><i /></div>
-        <div className="sealed-copy"><span>BOOSTER PURCHASED</span><h1>Ready to<br />open.</h1><p>Open the pack to add all 10 cards to your collection.</p></div>
+        <div className="sealed-copy"><span>BOOSTER PURCHASED</span><h1>Ready to<br />open.</h1><p>Open the pack to add all {cardCount} cards to your collection.</p></div>
         <div className="sealed-pack"><PackArt booster={booster} /><span className="pack-shadow" /></div>
         <button className="open-booster-button" type="button" onClick={openPurchasedBooster}>OPEN BOOSTER</button>
       </main>
@@ -295,11 +318,11 @@ function OpeningChamber({
     return (
       <main className="opening-chamber haul-complete" id="campaign-content" style={style}>
         <div className="completion-burst" aria-hidden="true"><i /><i /><i /></div>
-        <div className="completion-copy"><span>ALL 10 CARDS ADDED</span><h1>Booster<br />opened.</h1><p>The cards are now in your collection.</p></div>
+        <div className="completion-copy"><span>ALL {cardCount} CARDS ADDED</span><h1>Booster<br />opened.</h1><p>The cards are now in your collection.</p></div>
         <HaulFan cards={openedBooster.cards} />
         <div className={`premium-summary rarity-${openedBooster.premiumRarity}`}>
           <span>PREMIUM CARD · {rarityLabel(openedBooster.premiumRarity)}</span>
-          <strong>{openedBooster.cards[9].card.name}</strong>
+          <strong>{openedBooster.cards[premiumIndex].card.name}</strong>
         </div>
         <button className="return-vault" type="button" onClick={onDone}>BACK TO BOOSTERS <span aria-hidden="true">→</span></button>
       </main>
@@ -313,13 +336,13 @@ function OpeningChamber({
   };
 
   return (
-    <main className={`opening-chamber ritual rarity-${currentReward.rarity} ${isFaceUp ? 'showing-result' : 'awaiting-flip'} ${currentIndex === 9 ? 'premium-turn' : ''}`} id="campaign-content" style={style}>
+    <main className={`opening-chamber ritual rarity-${currentReward.rarity} ${isFaceUp ? 'showing-result' : 'awaiting-flip'} ${isPremiumTurn ? 'premium-turn' : ''}`} id="campaign-content" style={style}>
       <header className="ritual-heading">
-        <div><span>{booster.name} · CARD {currentIndex + 1} OF 10</span><h1>{currentIndex === 9 && !isFaceUp ? 'Premium card.' : isFaceUp ? currentReward.card.name : 'Flip the next card.'}</h1></div>
-        <div className="ritual-counter"><strong>{String(currentIndex + 1).padStart(2, '0')}</strong><span>/ 10</span></div>
+        <div><span>{booster.name} · CARD {currentIndex + 1} OF {cardCount}</span><h1>{isPremiumTurn && !isFaceUp ? 'Premium card.' : isFaceUp ? currentReward.card.name : 'Flip the next card.'}</h1></div>
+        <div className="ritual-counter"><strong>{String(currentIndex + 1).padStart(2, '0')}</strong><span>/ {cardCount}</span></div>
       </header>
 
-      <section className="ritual-stage" aria-label={`Opening card ${currentIndex + 1} of 10`}>
+      <section className="ritual-stage" aria-label={`Opening card ${currentIndex + 1} of ${cardCount}`}>
         <div className="opened-pack-source" aria-hidden="true"><PackArt booster={booster} isCompact /><span>OPENED PACK</span></div>
         <div className="secured-cards" aria-label={`${currentIndex} cards revealed`}>
           <span>REVEALED</span>
@@ -336,7 +359,7 @@ function OpeningChamber({
               />
             ))}
           </div>
-          <strong>{currentIndex}<small> / 10</small></strong>
+          <strong>{currentIndex}<small> / {cardCount}</small></strong>
         </div>
 
         <div className="card-altar">
@@ -344,21 +367,22 @@ function OpeningChamber({
           <CurrentCard
             reward={currentReward}
             index={currentIndex}
+            totalCards={cardCount}
             isFaceUp={isFaceUp}
             onActivate={() => isFaceUp ? secureCard() : setIsFaceUp(true)}
           />
           <span className={`flip-instruction ${isFaceUp ? 'continue' : ''}`}>
-            {isFaceUp ? (currentIndex === 9 ? 'CLICK CARD TO FINISH' : 'CLICK CARD FOR NEXT') : 'CLICK CARD TO REVEAL'} <kbd>↵</kbd>
+            {isFaceUp ? (isPremiumTurn ? 'CLICK CARD TO FINISH' : 'CLICK CARD FOR NEXT') : 'CLICK CARD TO REVEAL'} <kbd>↵</kbd>
           </span>
         </div>
 
         <aside className={`card-discovery ${isFaceUp ? 'visible' : ''}`} aria-live="polite">
           {isFaceUp ? (
             <>
-              <span>{rarityLabel(currentReward.rarity)} · {booster.id}</span>
+              <span>{rawCardMarketLabel(currentReward)} · {booster.id}</span>
               <h2>{currentReward.card.name}</h2>
               <p>{currentReward.card.subtitle || currentReward.card.type || 'Hyperverse card'}</p>
-              <dl><div><dt>SET</dt><dd>{booster.id}</dd></div><div><dt>NUMBER</dt><dd>{String(currentReward.card.number).padStart(3, '0')}</dd></div><div><dt>RARITY</dt><dd>{rarityLabel(currentReward.rarity)}</dd></div></dl>
+              <dl><div><dt>SET</dt><dd>{booster.id}</dd></div><div><dt>NUMBER</dt><dd>{String(currentReward.card.number).padStart(3, '0')}</dd></div><div><dt>RARITY</dt><dd>{rarityLabel(currentReward.rarity)}</dd></div><div><dt>{currentReward.stamped ? 'STAMPED RAW' : 'RAW VALUE'}</dt><dd>{formatCelestialCredits(getRawCardValueWithTreatmentCc(currentReward.card, currentReward.stamped))}</dd></div></dl>
               <div className="discovery-control-hint"><span>NEXT STEP</span><strong>Click the center card again</strong></div>
             </>
           ) : (
@@ -367,10 +391,10 @@ function OpeningChamber({
         </aside>
       </section>
 
-      <footer className="ritual-progress" aria-label={`${currentIndex} of 10 cards revealed`}>
+      <footer className="ritual-progress" aria-label={`${currentIndex} of ${cardCount} cards revealed`}>
         <span>CARDS IN THIS BOOSTER</span>
         <ol>{openedBooster.cards.map((reward, index) => <li key={index} className={`${index < currentIndex ? 'secured' : ''} ${index === currentIndex ? 'current' : ''} rarity-${reward.rarity}`}><span>{String(index + 1).padStart(2, '0')}</span></li>)}</ol>
-        <b>{currentIndex === 9 ? 'PREMIUM CARD' : `${10 - currentIndex} CARDS LEFT`}</b>
+        <b>{isPremiumTurn ? 'PREMIUM CARD' : `${cardCount - currentIndex} CARDS LEFT`}</b>
       </footer>
     </main>
   );
@@ -431,7 +455,7 @@ export function CampaignMode({ onExit }: CampaignModeProps) {
       <main className="campaign-main" id="campaign-content">
         <section className="vault-heading">
           <div><span className="campaign-kicker">BOOSTER SHOP</span><h1>Card<br /><em>packs.</em></h1></div>
-          <p>Buy a booster to add ten cards to your collection.</p>
+          <p>Buy a booster to add seven cards to your collection.</p>
           <div className="collection-readout glass">
             <div><small>COLLECTION</small><strong>{stats.totalCards}</strong><span>total cards</span></div>
             <div><small>UNIQUE</small><strong>{stats.uniqueCards}</strong><span>unique cards</span></div>
@@ -445,9 +469,14 @@ export function CampaignMode({ onExit }: CampaignModeProps) {
           <div className="booster-products">
             {BOOSTER_DEFINITIONS.map((booster) => <BoosterProduct key={booster.id} booster={booster} credits={profile.celestialCredits} onPurchase={buyBoosters} />)}
           </div>
-          <footer className="odds-strip">
-            <span>PREMIUM CARD ODDS</span>
-            <div><b>84%</b> Rare</div><div><b>15.83%</b> Ultra Rare</div><div><b>0.17%</b> Alternative</div>
+          <footer className="odds-strip" aria-label="Premium card rarity odds">
+            <div className="odds-heading"><span>PREMIUM CARD ODDS</span><small>Slot {BOOSTER_CARD_COUNT} in every booster</small></div>
+            <div className="odds-meter" aria-hidden="true"><i className="rare" /><i className="ultra" /><i className="alternative" /></div>
+            <dl className="odds-legend">
+              <div><dt><i className="rare" />Rare</dt><dd>84%</dd></div>
+              <div><dt><i className="ultra" />Ultra Rare</dt><dd>15.83%</dd></div>
+              <div><dt><i className="alternative" />Alternative</dt><dd>0.17%</dd></div>
+            </dl>
           </footer>
         </section>
       </main>

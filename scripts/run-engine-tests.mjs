@@ -62,6 +62,7 @@ try {
   const { runAiSelfTests } = await server.ssrLoadModule('/src/game/ai/ai.testHarness.ts');
   const { runBoosterTests } = await server.ssrLoadModule('/src/campaign/boosters.testHarness.ts');
   const { runCardConditionTests } = await server.ssrLoadModule('/src/campaign/cardCondition.testHarness.ts');
+  const { runCardPricingTests } = await server.ssrLoadModule('/src/campaign/cardPricing.testHarness.ts');
   const { runCampaignProfileTests } = await server.ssrLoadModule('/src/campaign/profile.testHarness.ts');
   const cardHarness = await server.ssrLoadModule('/src/game/cardTests/cardTestHarness.ts');
 
@@ -85,6 +86,7 @@ try {
         ...runAiSelfTests().map((result) => ({ suiteId: 'ai', file: 'src/game/ai/ai.testHarness.ts', ...result })),
         ...runBoosterTests().map((result) => ({ suiteId: 'campaign-boosters', file: 'src/campaign/boosters.testHarness.ts', ...result })),
         ...runCardConditionTests().map((result) => ({ suiteId: 'campaign-card-condition', file: 'src/campaign/cardCondition.testHarness.ts', ...result })),
+        ...runCardPricingTests().map((result) => ({ suiteId: 'campaign-card-pricing', file: 'src/campaign/cardPricing.testHarness.ts', ...result })),
         ...runCampaignProfileTests().map((result) => ({ suiteId: 'campaign-profile', file: 'src/campaign/profile.testHarness.ts', ...result })),
       ]
       : [];

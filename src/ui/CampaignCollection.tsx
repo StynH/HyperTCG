@@ -2,12 +2,17 @@ import {
   useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent,
 } from 'react';
 import type { OwnedCampaignCard } from '../campaign/cardCondition';
-import { getSgsSubgrades } from '../campaign/grading';
+import { getSgsLabelTier, getSgsSubgrades, type SgsLabelTier } from '../campaign/grading';
+import {
+  formatCelestialCredits, getGradingFeeCc, getMarketRarity, getOwnedCardValueCc,
+  getRawPriceTreatmentLabels,
+} from '../campaign/cardPricing';
 import {
   BOOSTER_DEFINITIONS, type BoosterRarity, type BoosterSetId,
 } from '../campaign/boosters';
 import {
-  gradeCampaignCard, saveCampaignProfile, wipeCampaignCollection, type CampaignProfile,
+  gradeCampaignCard, HAS_UNLIMITED_CELESTIAL_CREDITS, saveCampaignProfile,
+  wipeCampaignCollection, type CampaignProfile,
 } from '../campaign/profile';
 import { getCard } from '../data/catalog';
 import type { CardDefinition } from '../game/types';
@@ -23,7 +28,7 @@ interface CampaignCollectionProps {
 type GradingFilter = 'all' | 'ungraded' | 'graded';
 type SetFilter = 'all' | BoosterSetId;
 type RarityFilter = 'all' | BoosterRarity;
-type CollectionSort = 'collector-number' | 'rarity' | 'name' | 'newest';
+type CollectionSort = 'collector-number' | 'rarity' | 'value' | 'name' | 'newest';
 
 interface CollectionEntry {
   ownedCard: OwnedCampaignCard;
@@ -31,6 +36,8 @@ interface CollectionEntry {
   setId: BoosterSetId;
   rarity: BoosterRarity;
   acquiredIndex: number;
+  valueCc: number;
+  gradingFeeCc: number;
 }
 
 const SET_IDS: readonly BoosterSetId[] = ['ORIG', 'FOUR'];
@@ -55,12 +62,6 @@ function getBoosterSetId(card: CardDefinition): BoosterSetId {
   throw new Error(`Campaign collection card ${card.id} has unsupported set ${card.setId}.`);
 }
 
-function getCollectionRarity(card: CardDefinition): BoosterRarity {
-  if (card.unitTreatment === 'alternative' || card.rarity === 'secret') return 'alternative';
-  if (card.rarity === 'common' || card.rarity === 'uncommon' || card.rarity === 'rare' || card.rarity === 'ultra') return card.rarity;
-  throw new Error(`Campaign collection card ${card.id} has unsupported rarity ${card.rarity}.`);
-}
-
 function getSetDefinition(setId: BoosterSetId) {
   return BOOSTER_DEFINITIONS.find((set) => set.id === setId)!;
 }
@@ -82,6 +83,7 @@ function compareCollectionEntries(left: CollectionEntry, right: CollectionEntry,
   if (sort === 'newest') return right.acquiredIndex - left.acquiredIndex;
   if (sort === 'name') return left.card.name.localeCompare(right.card.name) || compareCollectorOrder(left, right);
   if (sort === 'rarity') return RARITY_ORDER[left.rarity] - RARITY_ORDER[right.rarity] || compareCollectorOrder(left, right);
+  if (sort === 'value') return right.valueCc - left.valueCc || compareCollectorOrder(left, right);
   return compareCollectorOrder(left, right);
 }
 
@@ -91,19 +93,26 @@ function SgsMark() {
 
 function getSgsGradeName(ownedCard: OwnedCampaignCard): string {
   const grade = ownedCard.grading!.grade;
-  const isPerfect = Object.values(ownedCard.condition).every((score) => score === 10);
-  if (isPerfect) return 'PERFECT';
   if (grade >= 9.9) return 'PRISTINE';
   if (grade >= 9.5) return 'GEM MINT';
   if (grade >= 9) return 'MINT';
   return 'NEAR MINT';
 }
 
-function getSgsLabelTier(ownedCard: OwnedCampaignCard): 'platinum' | 'gold' | 'silver' {
-  if (ownedCard.grading!.grade === 10) return 'platinum';
-  if (ownedCard.grading!.grade >= 9.5) return 'gold';
-  return 'silver';
-}
+const SGS_LABEL_NAMES: Record<SgsLabelTier, string> = {
+  diamond: 'DIAMOND',
+  platinum: 'PLATINUM',
+  'white-gold': 'WHITE GOLD',
+  gold: 'GOLD',
+  silver: 'SILVER',
+  bronze: 'BRONZE',
+};
+
+const SGS_LABEL_PROOFS: Partial<Record<SgsLabelTier, string>> = {
+  diamond: 'FOUR 10s',
+  platinum: 'TRIPLE 10',
+  'white-gold': 'PRISTINE',
+};
 
 function clearSlabTilt(slab: HTMLElement) {
   slab.style.removeProperty('--slab-rotate-x');
@@ -116,8 +125,9 @@ function SgsSlab({ ownedCard }: { ownedCard: OwnedCampaignCard }) {
   const card = getCard(ownedCard.cardId);
   const grading = ownedCard.grading!;
   const labelTier = getSgsLabelTier(ownedCard);
-  const rarity = getCollectionRarity(card);
+  const rarity = getMarketRarity(card);
   const subgrades = getSgsSubgrades(ownedCard.condition);
+  const labelProof = SGS_LABEL_PROOFS[labelTier];
   const slabRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -147,7 +157,7 @@ function SgsSlab({ ownedCard }: { ownedCard: OwnedCampaignCard }) {
   const resetSlabTilt = (event: ReactPointerEvent<HTMLElement>) => clearSlabTilt(event.currentTarget);
 
   return (
-    <figure ref={slabRef} className="sgs-slab" aria-label={`${card.name}, SGS graded ${grading.grade}`} onPointerMove={tiltSlab} onPointerLeave={resetSlabTilt} onPointerCancel={resetSlabTilt}>
+    <figure ref={slabRef} className="sgs-slab" data-tier={labelTier} aria-label={`${card.name}, SGS graded ${grading.grade}`} onPointerMove={tiltSlab} onPointerLeave={resetSlabTilt} onPointerCancel={resetSlabTilt}>
       <span className="slab-back" aria-hidden="true" />
       <span className="slab-edge slab-edge-left" aria-hidden="true" /><span className="slab-edge slab-edge-right" aria-hidden="true" />
       <span className="slab-edge slab-edge-top" aria-hidden="true" /><span className="slab-edge slab-edge-bottom" aria-hidden="true" />
@@ -155,7 +165,7 @@ function SgsSlab({ ownedCard }: { ownedCard: OwnedCampaignCard }) {
       <span className="slab-screw screw-three" aria-hidden="true" /><span className="slab-screw screw-four" aria-hidden="true" />
       <div className="slab-label" data-tier={labelTier}>
         <i className="slab-label-security" aria-hidden="true" />
-        <div className="slab-label-brand"><SgsMark /><span>{labelTier === 'platinum' ? 'PLATINUM' : 'AUTHENTIC'}</span>{ownedCard.stamped && <em>STAMPED</em>}</div>
+        <div className="slab-label-brand"><SgsMark /><span>{SGS_LABEL_NAMES[labelTier]}</span>{labelProof && <small className="slab-tier-proof">{labelProof}</small>}{ownedCard.stamped && <em>STAMPED</em>}</div>
         <div className="slab-identity">
           <div className="slab-identity-kicker">
             <small>{getSetName(getBoosterSetId(card))} · #{String(card.number).padStart(3, '0')}</small>
@@ -195,6 +205,14 @@ function GradingReturn({
 }) {
   const [isInTransit, setIsInTransit] = useState(isNewGrade);
   const card = getCard(ownedCard.cardId);
+  const marketValueCc = getOwnedCardValueCc(card, ownedCard);
+  // The copy as it was before SGS sealed it, so the reveal can show what
+  // grading bought rather than only where the card landed.
+  const rawCard: OwnedCampaignCard = { ...ownedCard, grading: undefined };
+  const feeCc = getGradingFeeCc(card, rawCard);
+  const rawValueCc = getOwnedCardValueCc(card, rawCard);
+  const netCc = marketValueCc - feeCc - rawValueCc;
+  const gainMultiple = marketValueCc / Math.max(1, rawValueCc);
 
   useEffect(() => {
     if (!isInTransit) return undefined;
@@ -218,8 +236,17 @@ function GradingReturn({
       <section className="slab-reveal-copy">
         <span>SGS GRADE</span>
         <h1>Grading<br />complete.</h1>
-        <p>{card.name} received a grade of {ownedCard.grading!.grade.toFixed(1)} and is now sealed.</p>
-        <div><small>GRADE</small><strong>{ownedCard.grading!.grade.toFixed(1)}</strong><span>{ownedCard.grading!.certificateNumber}</span></div>
+        <p>{card.name} received a grade of {ownedCard.grading!.grade.toFixed(1)} and is now valued at {formatCelestialCredits(marketValueCc)}.</p>
+        <div><small>MARKET VALUE</small><strong>{marketValueCc.toLocaleString()}</strong><span>{ownedCard.grading!.certificateNumber}</span></div>
+        <dl className="slab-payout" data-positive={netCc > 0}>
+          <div><dt>WAS WORTH</dt><dd>{rawValueCc.toLocaleString()}</dd></div>
+          <div className="payout-op"><dt>SGS FEE</dt><dd>&minus;{feeCc.toLocaleString()}</dd></div>
+          <div className="payout-total"><dt>NET GAIN</dt><dd>{netCc > 0 ? '+' : ''}{netCc.toLocaleString()}</dd></div>
+        </dl>
+        <p className="slab-payout-verdict" data-positive={netCc > 0}>
+          <b>{gainMultiple.toFixed(1)}&times;</b>
+          <span>{netCc > 0 ? 'more valuable than this copy was raw' : 'this copy was worth more raw'}</span>
+        </p>
       </section>
       <div className="slab-stage"><SgsSlab ownedCard={ownedCard} /><span className="slab-shadow" aria-hidden="true" /></div>
       <button className="slab-done" type="button" onClick={onDismiss}><span>BACK TO COLLECTION</span><small>Grade saved</small><b aria-hidden="true">→</b></button>
@@ -229,29 +256,44 @@ function GradingReturn({
 
 function CollectionCard({
   entry,
+  credits,
   onGrade,
   onViewSlab,
 }: {
   entry: CollectionEntry;
+  credits: number;
   onGrade: (instanceId: string) => void;
   onViewSlab: (ownedCard: OwnedCampaignCard) => void;
 }) {
   const { card, ownedCard, rarity, setId } = entry;
+  const canAfford = HAS_UNLIMITED_CELESTIAL_CREDITS || credits >= entry.gradingFeeCc;
+  const treatmentLabels = getRawPriceTreatmentLabels(card, ownedCard.stamped);
+  const rawDescription = treatmentLabels.length > 0
+    ? `${treatmentLabels.join(' · ')} · Raw · eligible for SGS`
+    : 'Raw · eligible for SGS';
+  const valueLabel = ownedCard.grading
+    ? 'GRADED VALUE'
+    : ownedCard.stamped ? 'STAMPED RAW VALUE' : 'RAW VALUE';
   return (
     <article className={`collection-card ${ownedCard.grading ? 'graded' : 'raw'}`}>
       <div className="collection-card-art">
         <div className="collection-card-tags"><span>{setId}</span><span data-rarity={rarity}>{RARITY_LABELS[rarity]}</span></div>
-        <CardDisplay image={card.image} alt={card.name} setId={setId} isStamped={ownedCard.stamped} className="collection-card-display" />
+        <CardDisplay image={card.image} alt={card.name} setId={setId} isStamped={ownedCard.stamped} loading="lazy" className="collection-card-display" />
         {ownedCard.grading && <span className="collection-grade-badge"><SgsMark /><b>{ownedCard.grading.grade.toFixed(1)}</b></span>}
       </div>
       <div className="collection-card-copy">
         <div className="collection-card-index"><span>{getSetShortName(setId)}</span><b>#{String(card.number).padStart(3, '0')}</b></div>
         <h2>{card.name}</h2>
-        <p><strong>{RARITY_LABELS[rarity]}</strong> · {ownedCard.grading ? `SGS ${ownedCard.grading.grade.toFixed(1)} · ${ownedCard.grading.certificateNumber}` : 'Raw · eligible for SGS'}</p>
+        <p><strong>{RARITY_LABELS[rarity]}</strong> · {ownedCard.grading ? `${treatmentLabels.length > 0 ? `${treatmentLabels.join(' · ')} · ` : ''}SGS ${ownedCard.grading.grade.toFixed(1)} · ${ownedCard.grading.certificateNumber}` : rawDescription}</p>
+        <div className="collection-market-value" aria-label={`Market value ${formatCelestialCredits(entry.valueCc)}`}>
+          <span>{valueLabel}</span><strong>{formatCelestialCredits(entry.valueCc)}</strong>
+        </div>
         {ownedCard.grading ? (
           <button type="button" onClick={() => onViewSlab(ownedCard)}>VIEW SGS SLAB <span aria-hidden="true">↗</span></button>
         ) : (
-          <button type="button" onClick={() => onGrade(ownedCard.instanceId)}>SEND TO SGS <span aria-hidden="true">→</span></button>
+          <button type="button" disabled={!canAfford} onClick={() => onGrade(ownedCard.instanceId)}>
+            {canAfford ? <>SEND TO SGS · {formatCelestialCredits(entry.gradingFeeCc)} <span aria-hidden="true">→</span></> : `NEED ${formatCelestialCredits(entry.gradingFeeCc - credits)} MORE`}
+          </button>
         )}
       </div>
     </article>
@@ -303,11 +345,14 @@ export function CampaignCollection({ profile, onProfileChange, onExit }: Campaig
       ownedCard,
       card,
       setId: getBoosterSetId(card),
-      rarity: getCollectionRarity(card),
+      rarity: getMarketRarity(card),
       acquiredIndex,
+      valueCc: getOwnedCardValueCc(card, ownedCard),
+      gradingFeeCc: getGradingFeeCc(card, ownedCard),
     };
   }), [profile.ownedCards]);
   const gradedCount = entries.filter((entry) => entry.ownedCard.grading).length;
+  const collectionValueCc = entries.reduce((total, entry) => total + entry.valueCc, 0);
   const setCounts = Object.fromEntries(SET_IDS.map((setId) => [
     setId,
     entries.filter((entry) => entry.setId === setId).length,
@@ -367,6 +412,7 @@ export function CampaignCollection({ profile, onProfileChange, onExit }: Campaig
             <div><dt>ORIGIN</dt><dd>{setCounts.ORIG}</dd></div>
             <div><dt>FOUR EMPERORS</dt><dd>{setCounts.FOUR}</dd></div>
             <div><dt>SGS GRADED</dt><dd>{gradedCount}</dd></div>
+            <div className="collection-value-total"><dt>MARKET VALUE</dt><dd>{formatCelestialCredits(collectionValueCc)}</dd></div>
           </dl>
         </header>
 
@@ -375,7 +421,7 @@ export function CampaignCollection({ profile, onProfileChange, onExit }: Campaig
 
           <div className="collection-controls">
             <label className="collection-search"><span>SEARCH COLLECTION</span><div><i aria-hidden="true">⌕</i><input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Name, type, set, number…" /></div></label>
-            <label className="collection-sort"><span>SORT BY</span><select value={sort} onChange={(event) => setSort(event.target.value as CollectionSort)}><option value="collector-number">Set & collector number</option><option value="rarity">Rarity: premium first</option><option value="name">Card name: A–Z</option><option value="newest">Newest acquired</option></select></label>
+            <label className="collection-sort"><span>SORT BY</span><select value={sort} onChange={(event) => setSort(event.target.value as CollectionSort)}><option value="collector-number">Set & collector number</option><option value="rarity">Rarity: premium first</option><option value="value">Market value: high to low</option><option value="name">Card name: A–Z</option><option value="newest">Newest acquired</option></select></label>
           </div>
 
           <div className="collection-filter-deck">
@@ -385,7 +431,7 @@ export function CampaignCollection({ profile, onProfileChange, onExit }: Campaig
           </div>
 
           {visibleEntries.length > 0 ? (
-            <div className="collection-grid">{visibleEntries.map((entry) => <CollectionCard key={entry.ownedCard.instanceId} entry={entry} onGrade={sendToSgs} onViewSlab={(card) => setSlabView({ card, isNewGrade: false })} />)}</div>
+            <div className="collection-grid">{visibleEntries.map((entry) => <CollectionCard key={entry.ownedCard.instanceId} entry={entry} credits={profile.celestialCredits} onGrade={sendToSgs} onViewSlab={(card) => setSlabView({ card, isNewGrade: false })} />)}</div>
           ) : (
             <div className="collection-empty"><LogoGlyph size={52} /><h2>No matching cards</h2><p>{entries.length === 0 ? 'Open a booster to start your collection.' : 'Try another set, rarity, status, or search.'}</p>{entries.length > 0 && <button type="button" onClick={clearFilters}>CLEAR FILTERS</button>}</div>
           )}

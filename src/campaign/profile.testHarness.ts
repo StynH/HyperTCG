@@ -1,4 +1,4 @@
-import { openBooster } from './boosters';
+import { BOOSTER_CARD_COUNT, openBooster } from './boosters';
 import {
   purchaseBoosters, wipeCampaignCollection, type CampaignProfile,
 } from './profile';
@@ -34,8 +34,9 @@ export function runCampaignProfileTests(): TestResult[] {
       const boosters = [openBooster('ORIG', () => 0.5), openBooster('ORIG', () => 0.5)];
       const profile = purchaseBoosters(createProfile(), boosters, 100);
       const collectionTotal = Object.values(profile.collection).reduce((total, count) => total + count, 0);
-      expect(collectionTotal === 20, `Expected 20 collection cards, received ${collectionTotal}`);
-      expect(profile.ownedCards.length === 20, `Expected 20 owned cards, received ${profile.ownedCards.length}`);
+      const expectedCards = BOOSTER_CARD_COUNT * boosters.length;
+      expect(collectionTotal === expectedCards, `Expected ${expectedCards} collection cards, received ${collectionTotal}`);
+      expect(profile.ownedCards.length === expectedCards, `Expected ${expectedCards} owned cards, received ${profile.ownedCards.length}`);
       expect(profile.packsOpened === 2, `Expected 2 opened packs, received ${profile.packsOpened}`);
     }),
     run('bulk purchase rejects an empty purchase', () => {

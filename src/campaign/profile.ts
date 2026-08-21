@@ -2,6 +2,8 @@ import type { OpenedBooster } from './boosters';
 import {
   createOwnedCampaignCard, type CardCondition, type OwnedCampaignCard,
 } from './cardCondition';
+import { getCard } from '../data/catalog';
+import { getGradingFeeCc } from './cardPricing';
 import { calculateSgsGrade, gradeCardWithSgs, type SgsGradingRecord } from './grading';
 
 export interface CampaignProfile {
@@ -163,14 +165,32 @@ export function loadCampaignProfile(): CampaignProfile {
   }
 }
 
+export function getCampaignGradingFeeCc(ownedCard: OwnedCampaignCard): number {
+  return getGradingFeeCc(getCard(ownedCard.cardId), ownedCard);
+}
+
+export function canGradeCampaignCard(profile: CampaignProfile, instanceId: string): boolean {
+  const ownedCard = profile.ownedCards.find((card) => card.instanceId === instanceId);
+  if (!ownedCard || ownedCard.grading) return false;
+  return HAS_UNLIMITED_CELESTIAL_CREDITS || profile.celestialCredits >= getCampaignGradingFeeCc(ownedCard);
+}
+
 export function gradeCampaignCard(profile: CampaignProfile, instanceId: string): CampaignProfile {
   const cardIndex = profile.ownedCards.findIndex((card) => card.instanceId === instanceId);
   if (cardIndex < 0) throw new Error(`Unknown campaign card instance: ${instanceId}`);
   const gradedCard = gradeCardWithSgs(profile.ownedCards[cardIndex]);
   if (gradedCard === profile.ownedCards[cardIndex]) return profile;
+  const fee = getCampaignGradingFeeCc(profile.ownedCards[cardIndex]);
+  if (!canGradeCampaignCard(profile, instanceId)) throw new Error('Not enough Celestial Credits to grade this card.');
   const ownedCards = [...profile.ownedCards];
   ownedCards[cardIndex] = gradedCard;
-  return { ...profile, ownedCards };
+  return {
+    ...profile,
+    celestialCredits: HAS_UNLIMITED_CELESTIAL_CREDITS
+      ? profile.celestialCredits
+      : profile.celestialCredits - fee,
+    ownedCards,
+  };
 }
 
 export function saveCampaignProfile(profile: CampaignProfile): void {

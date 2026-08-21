@@ -21,6 +21,9 @@ export interface BoosterCard {
 }
 
 const STAMP_CHANCE = 0.25;
+export const BOOSTER_COMMON_COUNT = 4;
+export const BOOSTER_UNCOMMON_COUNT = 2;
+export const BOOSTER_CARD_COUNT = BOOSTER_COMMON_COUNT + BOOSTER_UNCOMMON_COUNT + 1;
 
 export interface OpenedBooster {
   setId: BoosterSetId;
@@ -109,8 +112,8 @@ export function getPremiumRarity(roll: number): OpenedBooster['premiumRarity'] {
 export function openBooster(setId: BoosterSetId, random: () => number = Math.random): OpenedBooster {
   getBoosterDefinition(setId);
   const premiumRarity = getPremiumRarity(random());
-  const commons = drawDistinct(getPool(setId, 'common'), 6, random);
-  const uncommons = drawDistinct(getPool(setId, 'uncommon'), 3, random);
+  const commons = drawDistinct(getPool(setId, 'common'), BOOSTER_COMMON_COUNT, random);
+  const uncommons = drawDistinct(getPool(setId, 'uncommon'), BOOSTER_UNCOMMON_COUNT, random);
   const premium = drawDistinct(getPool(setId, premiumRarity), 1, random)[0];
   const premiumStamped = random() < STAMP_CHANCE;
 

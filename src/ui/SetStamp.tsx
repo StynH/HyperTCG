@@ -12,6 +12,7 @@ interface CardDisplayProps {
   alt: string;
   setId: string;
   isStamped?: boolean;
+  loading?: 'eager' | 'lazy';
   className?: string;
   style?: CSSProperties;
   children?: ReactNode;
@@ -22,13 +23,14 @@ export function CardDisplay({
   alt,
   setId,
   isStamped = false,
+  loading,
   className = '',
   style,
   children,
 }: CardDisplayProps) {
   return (
     <span className={`card-display ${className}`.trim()} style={style}>
-      <img className="card-display-image" src={image} alt={alt} />
+      <img className="card-display-image" src={image} alt={alt} loading={loading} decoding={loading === 'lazy' ? 'async' : undefined} />
       {isStamped && <SetStamp setId={setId} />}
       {children}
     </span>

@@ -6,6 +6,8 @@ export interface SgsGradingRecord {
   certificateNumber: string;
 }
 
+export type SgsLabelTier = 'diamond' | 'platinum' | 'white-gold' | 'gold' | 'silver' | 'bronze';
+
 export function roundSgsGrade(grade: number): number {
   return Math.round(grade * 2) / 2;
 }
@@ -23,6 +25,20 @@ export function calculateSgsGrade(condition: CardCondition): number {
   const subgrades = getSgsSubgrades(condition);
   const total = subgrades.centering + subgrades.corners + subgrades.edges + subgrades.surface;
   return roundSgsGrade(total / 4);
+}
+
+export function getSgsLabelTier(card: OwnedCampaignCard): SgsLabelTier {
+  const grade = card.grading?.grade;
+  if (grade === 10) {
+    const subgrades = Object.values(getSgsSubgrades(card.condition));
+    const perfectSubgradeCount = subgrades.filter((score) => score === 10).length;
+    if (perfectSubgradeCount === 4) return 'diamond';
+    if (perfectSubgradeCount === 3 && subgrades.includes(9.5)) return 'platinum';
+    return 'white-gold';
+  }
+  if (grade !== undefined && grade >= 9.5) return 'gold';
+  if (grade !== undefined && grade >= 9) return 'silver';
+  return 'bronze';
 }
 
 function createCertificateNumber(instanceId: string): string {
