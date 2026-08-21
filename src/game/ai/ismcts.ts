@@ -8,6 +8,7 @@ import type { DeckProfile } from './types';
 const EXPLORATION = Math.SQRT2;
 const WIDENING_RATE = 1.8;
 const ROLLOUT_VARIATION = 0.12;
+const MAX_TURN_COMPLETION_STEPS = 12;
 
 interface SearchNode {
   visits: number;
@@ -87,13 +88,18 @@ function selectTreeEdge(
 function rollout(
   initialState: GameState,
   remainingDepth: number,
+  rootTurnPlayer: PlayerId,
   player: PlayerId,
   profiles: Partial<Record<PlayerId, DeckProfile>>,
   candidateLimit: number,
   random: () => number,
 ): number {
   let state = initialState;
-  for (let depth = 0; depth < remainingDepth && state.winner === null; depth += 1) {
+  for (
+    let depth = 0;
+    depth < remainingDepth && state.winner === null && state.activePlayer === rootTurnPlayer;
+    depth += 1
+  ) {
     const actor = actingPlayer(state);
     const candidates = boundedCandidates(state, actor, candidateLimit);
     if (!candidates.length) break;
@@ -104,12 +110,32 @@ function rollout(
     if (result.error) break;
     state = result.state;
   }
+  // Atomic-action horizons otherwise reward padding: ending the turn reveals an
+  // opponent reply, while a low-impact action can push that reply beyond the leaf.
+  // Normalize every simulation to the same public boundary before evaluation.
+  for (
+    let step = 0;
+    step < MAX_TURN_COMPLETION_STEPS && state.winner === null && state.activePlayer === rootTurnPlayer;
+    step += 1
+  ) {
+    const actor = actingPlayer(state);
+    const candidates = boundedCandidates(state, actor, candidateLimit);
+    if (!candidates.length) break;
+    const action = state.pendingChoice || state.pendingMulligan
+      ? candidates[0]
+      : candidates.find(({ kind }) => kind === 'end-turn');
+    if (!action) break;
+    const result = applyGameAction(state, action, random);
+    if (result.error) break;
+    state = result.state;
+  }
   return normalizedValue(state, player, profiles);
 }
 
 export function runInformationSetSearch(input: InformationSetSearchInput): InformationSetCandidate[] {
   if (!input.samples.length || !input.chanceSeeds.length || input.iterations <= 0) return [];
   const root = createNode();
+  const rootTurnPlayer = input.samples[0].activePlayer;
 
   for (let iteration = 0; iteration < input.iterations; iteration += 1) {
     let state = input.samples[iteration % input.samples.length];
@@ -119,7 +145,11 @@ export function runInformationSetSearch(input: InformationSetSearchInput): Infor
     const traversed: SearchEdge[] = [];
     let depth = 0;
 
-    while (depth < input.searchDepth && state.winner === null) {
+    while (
+      depth < input.searchDepth
+      && state.winner === null
+      && state.activePlayer === rootTurnPlayer
+    ) {
       const actor = actingPlayer(state);
       const candidates = boundedCandidates(state, actor, input.candidateLimit);
       if (!candidates.length) break;
@@ -166,6 +196,7 @@ export function runInformationSetSearch(input: InformationSetSearchInput): Infor
     const value = rollout(
       state,
       input.searchDepth - depth,
+      rootTurnPlayer,
       input.player,
       input.profiles,
       input.candidateLimit,

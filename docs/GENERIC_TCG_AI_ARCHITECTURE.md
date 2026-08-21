@@ -346,6 +346,7 @@ Important implementation policies:
 - Search to at least the end of the current turn; harder levels should cross the opponent reply and return to the AI's next decision when budget allows.
 - Treat `pendingChoice` as a normal decision node. Do not auto-resolve targets during simulation unless the rollout policy is controlling that node.
 - Include `End Turn` at every legal action node. Otherwise the AI will spend resources merely because actions exist.
+- Normalize competing root lines at the same turn boundary. An atomic-action cutoff must not let a low-impact action hide the opponent turn beyond the horizon while `End Turn` exposes it immediately.
 - Use progressive widening so cheap budgets see strong candidates first while larger budgets can discover unusual combinations.
 - Reuse stable root statistics only when the new observation matches the expected child. Discard the tree after unexpected information.
 - Use transposition keys derived from the observation, acting player, pending choice, public history needed by effects, and the AI's own private knowledge. Never hash the real opponent hand into an information-set key.

@@ -2,11 +2,12 @@ import {
   useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent,
 } from 'react';
 import type { OwnedCampaignCard } from '../campaign/cardCondition';
+import { getSgsSubgrades } from '../campaign/grading';
 import {
   BOOSTER_DEFINITIONS, type BoosterRarity, type BoosterSetId,
 } from '../campaign/boosters';
 import {
-  gradeCampaignCard, saveCampaignProfile, type CampaignProfile,
+  gradeCampaignCard, saveCampaignProfile, wipeCampaignCollection, type CampaignProfile,
 } from '../campaign/profile';
 import { getCard } from '../data/catalog';
 import type { CardDefinition } from '../game/types';
@@ -60,8 +61,16 @@ function getCollectionRarity(card: CardDefinition): BoosterRarity {
   throw new Error(`Campaign collection card ${card.id} has unsupported rarity ${card.rarity}.`);
 }
 
+function getSetDefinition(setId: BoosterSetId) {
+  return BOOSTER_DEFINITIONS.find((set) => set.id === setId)!;
+}
+
 function getSetName(setId: BoosterSetId): string {
-  return BOOSTER_DEFINITIONS.find((set) => set.id === setId)!.shortName;
+  return getSetDefinition(setId).name;
+}
+
+function getSetShortName(setId: BoosterSetId): string {
+  return getSetDefinition(setId).shortName;
 }
 
 function compareCollectorOrder(left: CollectionEntry, right: CollectionEntry): number {
@@ -90,8 +99,8 @@ function getSgsGradeName(ownedCard: OwnedCampaignCard): string {
   return 'NEAR MINT';
 }
 
-function getSgsLabelTier(ownedCard: OwnedCampaignCard): 'black' | 'gold' | 'silver' {
-  if (Object.values(ownedCard.condition).every((score) => score === 10)) return 'black';
+function getSgsLabelTier(ownedCard: OwnedCampaignCard): 'platinum' | 'gold' | 'silver' {
+  if (ownedCard.grading!.grade === 10) return 'platinum';
   if (ownedCard.grading!.grade >= 9.5) return 'gold';
   return 'silver';
 }
@@ -106,7 +115,9 @@ function clearSlabTilt(slab: HTMLElement) {
 function SgsSlab({ ownedCard }: { ownedCard: OwnedCampaignCard }) {
   const card = getCard(ownedCard.cardId);
   const grading = ownedCard.grading!;
+  const labelTier = getSgsLabelTier(ownedCard);
   const rarity = getCollectionRarity(card);
+  const subgrades = getSgsSubgrades(ownedCard.condition);
   const slabRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -142,11 +153,13 @@ function SgsSlab({ ownedCard }: { ownedCard: OwnedCampaignCard }) {
       <span className="slab-edge slab-edge-top" aria-hidden="true" /><span className="slab-edge slab-edge-bottom" aria-hidden="true" />
       <span className="slab-screw screw-one" aria-hidden="true" /><span className="slab-screw screw-two" aria-hidden="true" />
       <span className="slab-screw screw-three" aria-hidden="true" /><span className="slab-screw screw-four" aria-hidden="true" />
-      <div className="slab-label" data-tier={getSgsLabelTier(ownedCard)}>
+      <div className="slab-label" data-tier={labelTier}>
         <i className="slab-label-security" aria-hidden="true" />
-        <div className="slab-label-brand"><SgsMark /><span>AUTHENTIC</span></div>
+        <div className="slab-label-brand"><SgsMark /><span>{labelTier === 'platinum' ? 'PLATINUM' : 'AUTHENTIC'}</span>{ownedCard.stamped && <em>STAMPED</em>}</div>
         <div className="slab-identity">
-          <small>{getSetName(getBoosterSetId(card))} · #{String(card.number).padStart(3, '0')}</small>
+          <div className="slab-identity-kicker">
+            <small>{getSetName(getBoosterSetId(card))} · #{String(card.number).padStart(3, '0')}</small>
+          </div>
           <strong>{card.name}</strong>
           <div className="slab-identity-meta">
             <span>HYPERVERSE TCG · {RARITY_LABELS[rarity]}</span>
@@ -154,10 +167,10 @@ function SgsSlab({ ownedCard }: { ownedCard: OwnedCampaignCard }) {
           </div>
         </div>
         <dl className="slab-subgrades" aria-label="SGS subgrades">
-          <div><dt>Centering</dt><dd>{ownedCard.condition.centering.toFixed(1)}</dd></div>
-          <div><dt>Corners</dt><dd>{ownedCard.condition.corners.toFixed(1)}</dd></div>
-          <div><dt>Edges</dt><dd>{ownedCard.condition.edges.toFixed(1)}</dd></div>
-          <div><dt>Surface</dt><dd>{ownedCard.condition.surface.toFixed(1)}</dd></div>
+          <div><dt>Centering</dt><dd>{subgrades.centering.toFixed(1)}</dd></div>
+          <div><dt>Corners</dt><dd>{subgrades.corners.toFixed(1)}</dd></div>
+          <div><dt>Edges</dt><dd>{subgrades.edges.toFixed(1)}</dd></div>
+          <div><dt>Surface</dt><dd>{subgrades.surface.toFixed(1)}</dd></div>
         </dl>
         <div className="slab-grade"><small>SGS GRADE</small><strong>{grading.grade.toFixed(1)}</strong><span>{getSgsGradeName(ownedCard)}</span></div>
       </div>
@@ -232,7 +245,7 @@ function CollectionCard({
         {ownedCard.grading && <span className="collection-grade-badge"><SgsMark /><b>{ownedCard.grading.grade.toFixed(1)}</b></span>}
       </div>
       <div className="collection-card-copy">
-        <div className="collection-card-index"><span>{getSetName(setId)}</span><b>#{String(card.number).padStart(3, '0')}</b></div>
+        <div className="collection-card-index"><span>{getSetShortName(setId)}</span><b>#{String(card.number).padStart(3, '0')}</b></div>
         <h2>{card.name}</h2>
         <p><strong>{RARITY_LABELS[rarity]}</strong> · {ownedCard.grading ? `SGS ${ownedCard.grading.grade.toFixed(1)} · ${ownedCard.grading.certificateNumber}` : 'Raw · eligible for SGS'}</p>
         {ownedCard.grading ? (
@@ -245,6 +258,37 @@ function CollectionCard({
   );
 }
 
+function WipeCollectionDialog({
+  cardCount,
+  onCancel,
+  onConfirm,
+}: {
+  cardCount: number;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    dialog.showModal();
+    return () => dialog.close();
+  }, []);
+
+  return (
+    <dialog ref={dialogRef} className="wipe-collection-dialog" aria-labelledby="wipe-collection-title" aria-describedby="wipe-collection-description" onCancel={onCancel}>
+      <span>IRREVERSIBLE ACTION</span>
+      <h2 id="wipe-collection-title">Wipe collection?</h2>
+      <p id="wipe-collection-description">This permanently deletes all {cardCount} cards, including SGS-graded slabs. Your Celestial Credits and lifetime booster count will stay.</p>
+      <div>
+        <button type="button" onClick={onCancel}>KEEP COLLECTION</button>
+        <button className="confirm-wipe" type="button" onClick={onConfirm}>WIPE {cardCount} CARDS</button>
+      </div>
+    </dialog>
+  );
+}
+
 export function CampaignCollection({ profile, onProfileChange, onExit }: CampaignCollectionProps) {
   const [gradingFilter, setGradingFilter] = useState<GradingFilter>('all');
   const [setFilter, setSetFilter] = useState<SetFilter>('all');
@@ -252,6 +296,7 @@ export function CampaignCollection({ profile, onProfileChange, onExit }: Campaig
   const [sort, setSort] = useState<CollectionSort>('collector-number');
   const [searchQuery, setSearchQuery] = useState('');
   const [slabView, setSlabView] = useState<{ card: OwnedCampaignCard; isNewGrade: boolean } | null>(null);
+  const [isWipeConfirmationOpen, setIsWipeConfirmationOpen] = useState(false);
   const entries = useMemo(() => profile.ownedCards.map((ownedCard, acquiredIndex): CollectionEntry => {
     const card = getCard(ownedCard.cardId);
     return {
@@ -295,6 +340,14 @@ export function CampaignCollection({ profile, onProfileChange, onExit }: Campaig
     setSlabView({ card: gradedCard, isNewGrade: true });
   };
 
+  const wipeCollection = () => {
+    const nextProfile = wipeCampaignCollection(profile);
+    saveCampaignProfile(nextProfile);
+    onProfileChange(nextProfile);
+    clearFilters();
+    setIsWipeConfirmationOpen(false);
+  };
+
   if (slabView) return <GradingReturn ownedCard={slabView.card} isNewGrade={slabView.isNewGrade} onDismiss={() => setSlabView(null)} />;
 
   return (
@@ -318,7 +371,7 @@ export function CampaignCollection({ profile, onProfileChange, onExit }: Campaig
         </header>
 
         <section className="collection-archive" aria-labelledby="collection-title">
-          <header className="collection-archive-header"><div><span>COLLECTION</span><h2 id="collection-title">All cards</h2></div><div className="collection-results"><strong aria-live="polite">{visibleEntries.length} / {entries.length} CARDS</strong>{hasActiveFilters && <button className="collection-clear" type="button" onClick={clearFilters}>CLEAR FILTERS ×</button>}</div></header>
+          <header className="collection-archive-header"><div><span>COLLECTION</span><h2 id="collection-title">All cards</h2></div><div className="collection-results"><strong aria-live="polite">{visibleEntries.length} / {entries.length} CARDS</strong>{hasActiveFilters && <button className="collection-clear" type="button" onClick={clearFilters}>CLEAR FILTERS ×</button>}<button className="collection-wipe" type="button" disabled={entries.length === 0} onClick={() => setIsWipeConfirmationOpen(true)}>WIPE COLLECTION</button></div></header>
 
           <div className="collection-controls">
             <label className="collection-search"><span>SEARCH COLLECTION</span><div><i aria-hidden="true">⌕</i><input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Name, type, set, number…" /></div></label>
@@ -326,7 +379,7 @@ export function CampaignCollection({ profile, onProfileChange, onExit }: Campaig
           </div>
 
           <div className="collection-filter-deck">
-            <div className="collection-filter-row"><span>SET</span><div className="collection-filters set-filters" role="group" aria-label="Filter by set"><button type="button" className={setFilter === 'all' ? 'selected' : ''} aria-pressed={setFilter === 'all'} onClick={() => setSetFilter('all')}>All sets</button>{SET_IDS.map((setId) => <button key={setId} type="button" className={setFilter === setId ? 'selected' : ''} aria-pressed={setFilter === setId} onClick={() => setSetFilter(setId)}><b>{setId}</b><small>{getSetName(setId)}</small></button>)}</div></div>
+            <div className="collection-filter-row"><span>SET</span><div className="collection-filters set-filters" role="group" aria-label="Filter by set"><button type="button" className={setFilter === 'all' ? 'selected' : ''} aria-pressed={setFilter === 'all'} onClick={() => setSetFilter('all')}>All sets</button>{SET_IDS.map((setId) => <button key={setId} type="button" className={setFilter === setId ? 'selected' : ''} aria-pressed={setFilter === setId} onClick={() => setSetFilter(setId)}><b>{setId}</b><small>{getSetShortName(setId)}</small></button>)}</div></div>
             <div className="collection-filter-row"><span>RARITY</span><div className="collection-filters rarity-filters" role="group" aria-label="Filter by rarity"><button type="button" className={rarityFilter === 'all' ? 'selected' : ''} aria-pressed={rarityFilter === 'all'} onClick={() => setRarityFilter('all')}>All</button>{RARITIES.map((rarity) => <button key={rarity} type="button" data-rarity={rarity} className={rarityFilter === rarity ? 'selected' : ''} aria-pressed={rarityFilter === rarity} onClick={() => setRarityFilter(rarity)}>{RARITY_LABELS[rarity]}</button>)}</div></div>
             <div className="collection-filter-row status-filter-row"><span>STATUS</span><div className="collection-filters" role="group" aria-label="Filter by grading status">{(['all', 'ungraded', 'graded'] as const).map((value) => <button key={value} type="button" className={gradingFilter === value ? 'selected' : ''} aria-pressed={gradingFilter === value} onClick={() => setGradingFilter(value)}>{value === 'all' ? 'Any status' : value}</button>)}</div></div>
           </div>
@@ -338,6 +391,7 @@ export function CampaignCollection({ profile, onProfileChange, onExit }: Campaig
           )}
         </section>
       </main>
+      {isWipeConfirmationOpen && <WipeCollectionDialog cardCount={entries.length} onCancel={() => setIsWipeConfirmationOpen(false)} onConfirm={wipeCollection} />}
     </div>
   );
 }

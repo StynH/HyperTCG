@@ -6,9 +6,23 @@ export interface SgsGradingRecord {
   certificateNumber: string;
 }
 
+export function roundSgsGrade(grade: number): number {
+  return Math.round(grade * 2) / 2;
+}
+
+export function getSgsSubgrades(condition: CardCondition): CardCondition {
+  return {
+    centering: roundSgsGrade(condition.centering),
+    corners: roundSgsGrade(condition.corners),
+    edges: roundSgsGrade(condition.edges),
+    surface: roundSgsGrade(condition.surface),
+  };
+}
+
 export function calculateSgsGrade(condition: CardCondition): number {
-  const total = condition.centering + condition.corners + condition.edges + condition.surface;
-  return Math.round((total / 4) * 10) / 10;
+  const subgrades = getSgsSubgrades(condition);
+  const total = subgrades.centering + subgrades.corners + subgrades.edges + subgrades.surface;
+  return roundSgsGrade(total / 4);
 }
 
 function createCertificateNumber(instanceId: string): string {

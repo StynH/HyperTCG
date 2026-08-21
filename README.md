@@ -11,6 +11,13 @@ npm run dev
 
 Then open `http://127.0.0.1:4173`.
 
+### Run on the local network (Windows)
+
+Double-click `launch-lan.bat`, then open one of the printed **Network** URLs on a
+device connected to the same local network. This mode rejects clients outside
+loopback, private IPv4/link-local ranges, and private/link-local IPv6 ranges.
+The normal `npm run dev` command remains accessible only from this computer.
+
 ## Gameplay in this POC
 
 - Legal 60-card decks, seven-card opening hands, and an optional mulligan of up to three cards

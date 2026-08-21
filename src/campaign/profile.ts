@@ -2,7 +2,7 @@ import type { OpenedBooster } from './boosters';
 import {
   createOwnedCampaignCard, type CardCondition, type OwnedCampaignCard,
 } from './cardCondition';
-import { gradeCardWithSgs, type SgsGradingRecord } from './grading';
+import { calculateSgsGrade, gradeCardWithSgs, type SgsGradingRecord } from './grading';
 
 export interface CampaignProfile {
   version: 3;
@@ -102,6 +102,18 @@ function isValidProfile(value: unknown): value is CampaignProfile {
     && profile.ownedCards.every(isValidOwnedCard);
 }
 
+function normalizeStoredGrades(profile: CampaignProfile): CampaignProfile {
+  let didChange = false;
+  const ownedCards = profile.ownedCards.map((card) => {
+    if (!card.grading) return card;
+    const grade = calculateSgsGrade(card.condition);
+    if (grade === card.grading.grade) return card;
+    didChange = true;
+    return { ...card, grading: { ...card.grading, grade } };
+  });
+  return didChange ? { ...profile, ownedCards } : profile;
+}
+
 function isValidVersionTwoProfile(value: unknown): value is VersionTwoCampaignProfile {
   if (!value || typeof value !== 'object') return false;
   const profile = value as Partial<VersionTwoCampaignProfile>;
@@ -129,9 +141,13 @@ export function loadCampaignProfile(): CampaignProfile {
     const serialized = localStorage.getItem(STORAGE_KEY);
     if (!serialized) return createDefaultProfile();
     const profile: unknown = JSON.parse(serialized);
-    if (isValidProfile(profile)) return profile;
+    if (isValidProfile(profile)) {
+      const normalizedProfile = normalizeStoredGrades(profile);
+      if (normalizedProfile !== profile) saveCampaignProfile(normalizedProfile);
+      return normalizedProfile;
+    }
     if (isValidVersionTwoProfile(profile)) {
-      const migratedProfile: CampaignProfile = { ...profile, version: 3 };
+      const migratedProfile = normalizeStoredGrades({ ...profile, version: 3 });
       saveCampaignProfile(migratedProfile);
       return migratedProfile;
     }
@@ -174,20 +190,42 @@ export function purchaseBooster(
   booster: OpenedBooster,
   price: number,
 ): CampaignProfile {
-  if (!canPurchaseBooster(profile, price)) throw new Error('Not enough Celestial Credits for this booster.');
+  return purchaseBoosters(profile, [booster], price);
+}
+
+export function purchaseBoosters(
+  profile: CampaignProfile,
+  boosters: readonly OpenedBooster[],
+  pricePerBooster: number,
+): CampaignProfile {
+  if (boosters.length < 1) throw new Error('At least one booster is required.');
+  const totalPrice = pricePerBooster * boosters.length;
+  if (!canPurchaseBooster(profile, totalPrice)) throw new Error('Not enough Celestial Credits for these boosters.');
   const collection = { ...profile.collection };
-  for (const { card } of booster.cards) collection[card.id] = (collection[card.id] ?? 0) + 1;
+  for (const booster of boosters) {
+    for (const { card } of booster.cards) collection[card.id] = (collection[card.id] ?? 0) + 1;
+  }
   const ownedCards = [
     ...profile.ownedCards,
-    ...booster.cards.map(({ card, stamped }) => createOwnedCampaignCard(card.id, stamped)),
+    ...boosters.flatMap((booster) => (
+      booster.cards.map(({ card, stamped }) => createOwnedCampaignCard(card.id, stamped))
+    )),
   ];
   return {
     ...profile,
     celestialCredits: HAS_UNLIMITED_CELESTIAL_CREDITS
       ? profile.celestialCredits
-      : profile.celestialCredits - price,
+      : profile.celestialCredits - totalPrice,
     collection,
     ownedCards,
-    packsOpened: profile.packsOpened + 1,
+    packsOpened: profile.packsOpened + boosters.length,
+  };
+}
+
+export function wipeCampaignCollection(profile: CampaignProfile): CampaignProfile {
+  return {
+    ...profile,
+    collection: {},
+    ownedCards: [],
   };
 }

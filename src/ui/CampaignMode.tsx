@@ -4,7 +4,7 @@ import {
 } from '../campaign/boosters';
 import {
   canPurchaseBooster, HAS_UNLIMITED_CELESTIAL_CREDITS, loadCampaignProfile,
-  purchaseBooster, saveCampaignProfile, type CampaignProfile,
+  purchaseBoosters, saveCampaignProfile, type CampaignProfile,
 } from '../campaign/profile';
 import { LogoGlyph } from './MakerGraphics';
 import { CampaignCollection } from './CampaignCollection';
@@ -13,6 +13,8 @@ import { CardDisplay, SET_LOGOS } from './SetStamp';
 interface CampaignModeProps {
   onExit: () => void;
 }
+
+const MAX_BOOSTERS_PER_PURCHASE = 10;
 
 function campaignStats(profile: CampaignProfile) {
   return {
@@ -55,9 +57,14 @@ function BoosterProduct({
 }: {
   booster: BoosterDefinition;
   credits: number;
-  onPurchase: (booster: BoosterDefinition) => void;
+  onPurchase: (booster: BoosterDefinition, quantity: number) => void;
 }) {
-  const canAfford = HAS_UNLIMITED_CELESTIAL_CREDITS || credits >= booster.price;
+  const [quantity, setQuantity] = useState(1);
+  const maximumAffordableQuantity = HAS_UNLIMITED_CELESTIAL_CREDITS
+    ? MAX_BOOSTERS_PER_PURCHASE
+    : Math.min(MAX_BOOSTERS_PER_PURCHASE, Math.floor(credits / booster.price));
+  const totalPrice = booster.price * quantity;
+  const canAfford = maximumAffordableQuantity >= quantity;
   const style = {
     '--pack-accent': booster.accent,
     '--pack-accent-soft': booster.accentSoft,
@@ -74,10 +81,20 @@ function BoosterProduct({
           <div><dt>UNCOMMON</dt><dd>3</dd></div>
           <div><dt>PREMIUM</dt><dd>1</dd></div>
         </dl>
-        <button type="button" disabled={!canAfford} onClick={() => onPurchase(booster)}>
-          <span>{canAfford ? 'BUY BOOSTER' : `NEED ${booster.price - credits} MORE CC`}</span>
-          <b><CreditMark /> {booster.price}</b>
-        </button>
+        <div className="pack-purchase-controls">
+          <div className="pack-quantity" aria-label="Booster quantity">
+            <span>PACKS</span>
+            <div>
+              <button type="button" aria-label="Buy one fewer booster" disabled={quantity === 1} onClick={() => setQuantity((value) => Math.max(1, value - 1))}>−</button>
+              <strong aria-live="polite">{quantity}</strong>
+              <button type="button" aria-label="Buy one more booster" disabled={quantity >= maximumAffordableQuantity} onClick={() => setQuantity((value) => Math.min(MAX_BOOSTERS_PER_PURCHASE, value + 1))}>+</button>
+            </div>
+          </div>
+          <button className="buy-boosters" type="button" disabled={!canAfford} onClick={() => onPurchase(booster, quantity)}>
+            <span>{canAfford ? `BUY ${quantity} ${quantity === 1 ? 'BOOSTER' : 'BOOSTERS'}` : `NEED ${totalPrice - credits} MORE CC`}</span>
+            <b><CreditMark /> {totalPrice}</b>
+          </button>
+        </div>
       </div>
     </article>
   );
@@ -157,6 +174,92 @@ function HaulFan({ cards }: { cards: OpenedBooster['cards'] }) {
   );
 }
 
+function BulkOpeningChamber({
+  booster,
+  openedBoosters,
+  onDone,
+  onViewCollection,
+}: {
+  booster: BoosterDefinition;
+  openedBoosters: readonly OpenedBooster[];
+  onDone: () => void;
+  onViewCollection: () => void;
+}) {
+  const [hasOpened, setHasOpened] = useState(false);
+  const [selectedPackIndex, setSelectedPackIndex] = useState(0);
+  const rewards = openedBoosters.flatMap((openedBooster, packIndex) => (
+    openedBooster.cards.map((reward, cardIndex) => ({ reward, packIndex, cardIndex }))
+  ));
+  const premiumCounts = openedBoosters.reduce<Record<OpenedBooster['premiumRarity'], number>>((counts, openedBooster) => {
+    counts[openedBooster.premiumRarity] += 1;
+    return counts;
+  }, { rare: 0, ultra: 0, alternative: 0 });
+  const stampedCount = rewards.filter(({ reward }) => reward.stamped).length;
+  const selectedBooster = openedBoosters[selectedPackIndex];
+  const style = {
+    '--pack-accent': booster.accent,
+    '--pack-accent-soft': booster.accentSoft,
+  } as CSSProperties;
+  const openPurchasedBoosters = () => setHasOpened(true);
+
+  if (!hasOpened) {
+    return (
+      <main className="opening-chamber sealed bulk-sealed" id="campaign-content" style={style}>
+        <div className="opening-radiance" aria-hidden="true"><i /><i /><i /></div>
+        <div className="sealed-copy"><span>{openedBoosters.length} BOOSTERS PURCHASED</span><h1>Ready to<br />open all.</h1><p>Open every pack at once to add all {rewards.length} cards to your collection.</p></div>
+        <div className="sealed-pack"><PackArt booster={booster} /><strong className="pack-stack-count">×{openedBoosters.length}</strong><span className="pack-shadow" /></div>
+        <button className="open-booster-button" type="button" onClick={openPurchasedBoosters}>OPEN ALL BOOSTERS</button>
+      </main>
+    );
+  }
+
+  return (
+    <main className="opening-chamber bulk-results" id="campaign-content" style={style}>
+      <header className="bulk-results-heading">
+        <button className="bulk-results-exit" type="button" onClick={onDone}>← <span>BOOSTERS</span></button>
+        <div><span>OPENING COMPLETE</span><h1>All packs opened.</h1><p>{rewards.length} cards added to your collection.</p></div>
+        <div className="bulk-results-count"><strong>{openedBoosters.length}</strong><span>PACKS OPENED</span></div>
+      </header>
+      <section className="bulk-premium-summary" aria-label="Premium card summary">
+        <div><span>RARE</span><strong>{premiumCounts.rare}</strong></div>
+        <div><span>ULTRA RARE</span><strong>{premiumCounts.ultra}</strong></div>
+        <div><span>ALTERNATIVE</span><strong>{premiumCounts.alternative}</strong></div>
+        <div><span>STAMPED</span><strong>{stampedCount}</strong></div>
+      </section>
+      <nav className="bulk-pack-tabs" aria-label="Choose an opened booster">
+        {openedBoosters.map((openedBooster, packIndex) => (
+          <button type="button" key={packIndex} aria-pressed={selectedPackIndex === packIndex} onClick={() => setSelectedPackIndex(packIndex)}>
+            <span>PACK {String(packIndex + 1).padStart(2, '0')}</span>
+            <strong>{rarityLabel(openedBooster.premiumRarity)}</strong>
+          </button>
+        ))}
+      </nav>
+      <section className="bulk-pack-stage" aria-labelledby="selected-pack-title" aria-live="polite">
+        <header>
+          <div><span>VIEWING PACK {selectedPackIndex + 1} OF {openedBoosters.length}</span><h2 id="selected-pack-title">{booster.name}</h2></div>
+          <div className={`bulk-pack-premium rarity-${selectedBooster.premiumRarity}`}><span>PREMIUM PULL</span><strong>{selectedBooster.cards[9].card.name}</strong></div>
+        </header>
+        <div className="bulk-reward-grid">
+          {selectedBooster.cards.map((reward, cardIndex) => (
+          <article className={`bulk-reward rarity-${reward.rarity}`} key={`${selectedPackIndex}-${cardIndex}-${reward.card.id}`}>
+            <CardDisplay image={reward.card.image} alt={reward.card.name} setId={reward.card.setId} isStamped={reward.stamped} />
+            <div><span>{rarityLabel(reward.rarity)}</span><strong>{reward.card.name}</strong></div>
+          </article>
+          ))}
+        </div>
+      </section>
+      <footer className="bulk-results-footer">
+        <div><strong>PACK {String(selectedPackIndex + 1).padStart(2, '0')}</strong><span>OF {String(openedBoosters.length).padStart(2, '0')}</span></div>
+        <div className="bulk-pack-navigation">
+          <button type="button" disabled={selectedPackIndex === 0} onClick={() => setSelectedPackIndex((index) => Math.max(0, index - 1))}>← PREVIOUS PACK</button>
+          <button type="button" disabled={selectedPackIndex === openedBoosters.length - 1} onClick={() => setSelectedPackIndex((index) => Math.min(openedBoosters.length - 1, index + 1))}>NEXT PACK →</button>
+        </div>
+        <button className="bulk-view-collection" type="button" onClick={onViewCollection}>OPEN COLLECTION <span aria-hidden="true">→</span></button>
+      </footer>
+    </main>
+  );
+}
+
 function OpeningChamber({
   booster,
   openedBooster,
@@ -175,6 +278,7 @@ function OpeningChamber({
     '--pack-accent': booster.accent,
     '--pack-accent-soft': booster.accentSoft,
   } as CSSProperties;
+  const openPurchasedBooster = () => setHasTornSeal(true);
 
   if (!hasTornSeal) {
     return (
@@ -182,7 +286,7 @@ function OpeningChamber({
         <div className="opening-radiance" aria-hidden="true"><i /><i /><i /></div>
         <div className="sealed-copy"><span>BOOSTER PURCHASED</span><h1>Ready to<br />open.</h1><p>Open the pack to add all 10 cards to your collection.</p></div>
         <div className="sealed-pack"><PackArt booster={booster} /><span className="pack-shadow" /></div>
-        <button className="tear-seal" type="button" onClick={() => setHasTornSeal(true)}><span>OPEN BOOSTER</span><small>{booster.name}</small><b aria-hidden="true">↗</b></button>
+        <button className="open-booster-button" type="button" onClick={openPurchasedBooster}>OPEN BOOSTER</button>
       </main>
     );
   }
@@ -275,25 +379,37 @@ function OpeningChamber({
 export function CampaignMode({ onExit }: CampaignModeProps) {
   const [profile, setProfile] = useState(loadCampaignProfile);
   const [activeBooster, setActiveBooster] = useState<BoosterDefinition | null>(null);
-  const [openedBooster, setOpenedBooster] = useState<OpenedBooster | null>(null);
+  const [openedBoosters, setOpenedBoosters] = useState<readonly OpenedBooster[]>([]);
   const [isCollectionOpen, setIsCollectionOpen] = useState(false);
   const stats = useMemo(() => campaignStats(profile), [profile]);
 
-  const buyBooster = (booster: BoosterDefinition) => {
-    if (!canPurchaseBooster(profile, booster.price)) return;
-    const opened = openBooster(booster.id);
-    const nextProfile = purchaseBooster(profile, opened, booster.price);
+  const buyBoosters = (booster: BoosterDefinition, quantity: number) => {
+    const totalPrice = booster.price * quantity;
+    if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > MAX_BOOSTERS_PER_PURCHASE) return;
+    if (!canPurchaseBooster(profile, totalPrice)) return;
+    const opened = Array.from({ length: quantity }, () => openBooster(booster.id));
+    const nextProfile = purchaseBoosters(profile, opened, booster.price);
     saveCampaignProfile(nextProfile);
     setProfile(nextProfile);
     setActiveBooster(booster);
-    setOpenedBooster(opened);
+    setOpenedBoosters(opened);
   };
 
-  if (activeBooster && openedBooster) {
+  if (activeBooster && openedBoosters.length > 0) {
+    const finishOpening = () => {
+      setActiveBooster(null);
+      setOpenedBoosters([]);
+    };
+    const viewCollection = () => {
+      finishOpening();
+      setIsCollectionOpen(true);
+    };
     return (
       <div className="campaign-shell opening-shell">
         <a className="skip-link" href="#campaign-content">Skip to booster opening</a>
-        <OpeningChamber booster={activeBooster} openedBooster={openedBooster} onDone={() => { setActiveBooster(null); setOpenedBooster(null); }} />
+        {openedBoosters.length === 1
+          ? <OpeningChamber booster={activeBooster} openedBooster={openedBoosters[0]} onDone={finishOpening} />
+          : <BulkOpeningChamber booster={activeBooster} openedBoosters={openedBoosters} onDone={finishOpening} onViewCollection={viewCollection} />}
       </div>
     );
   }
@@ -327,7 +443,7 @@ export function CampaignMode({ onExit }: CampaignModeProps) {
         <section className="booster-shelf" aria-labelledby="available-boosters-title">
           <header><div><span>AVAILABLE SETS</span><h2 id="available-boosters-title">Available boosters</h2></div><b>02 <small>SETS</small></b></header>
           <div className="booster-products">
-            {BOOSTER_DEFINITIONS.map((booster) => <BoosterProduct key={booster.id} booster={booster} credits={profile.celestialCredits} onPurchase={buyBooster} />)}
+            {BOOSTER_DEFINITIONS.map((booster) => <BoosterProduct key={booster.id} booster={booster} credits={profile.celestialCredits} onPurchase={buyBoosters} />)}
           </div>
           <footer className="odds-strip">
             <span>PREMIUM CARD ODDS</span>

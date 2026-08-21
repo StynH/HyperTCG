@@ -188,6 +188,24 @@ export function runAiSelfTests(): TestResult[] {
       }, seededRandom(44));
       expect(result.winner === 1, 'Opponent did not execute the forced win');
     }),
+    run('ends the turn instead of Rotating only to delay the search horizon', () => {
+      const state = createCleanTestState();
+      state.activePlayer = 1;
+      state.isOpponentActing = true;
+      addTestUnit(state, 1, 'vanguard', 0, '069-conscript');
+      addTestUnit(state, 1, 'vanguard', 1, '069-conscript');
+      addTestUnit(state, 1, 'backguard', 0, '069-conscript');
+      addTestUnit(state, 1, 'backguard', 1, '069-conscript');
+      addTestUnit(state, 0, 'vanguard', 0, '067-civilian');
+      const decisions = Array.from({ length: 50 }, (_, index) => chooseStrategicOpponentAction(state, {
+        knownPlayerDeck: PLAYER_LIST,
+        aiDeck: AI_LIST,
+        difficulty: 'initiate',
+      }, seededRandom(index + 1)));
+      const paddedDecision = decisions.find((decision) => decision?.action.kind !== 'end-turn');
+      expect(!paddedDecision,
+        `Opponent padded its search horizon with ${paddedDecision?.action.kind ?? 'no action'}`);
+    }),
     run('evaluates and completes the opponent opening mulligan', () => {
       const state = createCleanTestState();
       state.activePlayer = 0;

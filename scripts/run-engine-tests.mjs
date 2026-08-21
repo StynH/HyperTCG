@@ -60,7 +60,9 @@ try {
   const { runEngineSelfTests } = await server.ssrLoadModule('/src/game/engine.testHarness.ts');
   const { runActionSelfTests } = await server.ssrLoadModule('/src/game/actions.testHarness.ts');
   const { runAiSelfTests } = await server.ssrLoadModule('/src/game/ai/ai.testHarness.ts');
+  const { runBoosterTests } = await server.ssrLoadModule('/src/campaign/boosters.testHarness.ts');
   const { runCardConditionTests } = await server.ssrLoadModule('/src/campaign/cardCondition.testHarness.ts');
+  const { runCampaignProfileTests } = await server.ssrLoadModule('/src/campaign/profile.testHarness.ts');
   const cardHarness = await server.ssrLoadModule('/src/game/cardTests/cardTestHarness.ts');
 
   if (options.list) {
@@ -81,7 +83,9 @@ try {
         ...runEngineSelfTests().map((result) => ({ suiteId: 'engine', file: 'src/game/engine.testHarness.ts', ...result })),
         ...runActionSelfTests().map((result) => ({ suiteId: 'actions', file: 'src/game/actions.testHarness.ts', ...result })),
         ...runAiSelfTests().map((result) => ({ suiteId: 'ai', file: 'src/game/ai/ai.testHarness.ts', ...result })),
+        ...runBoosterTests().map((result) => ({ suiteId: 'campaign-boosters', file: 'src/campaign/boosters.testHarness.ts', ...result })),
         ...runCardConditionTests().map((result) => ({ suiteId: 'campaign-card-condition', file: 'src/campaign/cardCondition.testHarness.ts', ...result })),
+        ...runCampaignProfileTests().map((result) => ({ suiteId: 'campaign-profile', file: 'src/campaign/profile.testHarness.ts', ...result })),
       ]
       : [];
     const cardResults = shouldRunCards ? cardHarness.runCardTests({
